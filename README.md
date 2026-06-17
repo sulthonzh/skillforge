@@ -62,7 +62,9 @@ web-scraping-python-playwright
 - 🚀 **One-command run** — `skillforge serve` serves the API **and** Web UI from a single port (no separate Node process).
 - 📦 **Single binary** — package the whole app (API + Web UI) into one standalone executable with `./scripts/build-binary.sh`; no Python install needed on the target.
 - ⚙️ **CLI** — `skillforge serve | plan | generate | install | list | validate | remove`.
-- 🔌 **Provider-agnostic AI** — OpenAI-compatible, Ollama-local, or a mock provider for tests.
+- 🔌 **Provider-agnostic AI** — Mock, OpenAI-compatible (OpenAI/OpenRouter/Groq/Together/Mistral/DeepSeek/xAI/Z.ai…), Ollama, **Anthropic (Claude)**, **Google Gemini**, and **Cohere** — switchable live from Settings.
+- 🧪 **Eval & benchmark harness** — run skills against test prompts, auto-score with an LLM-as-judge, and compare setups side-by-side to find the best SKILL config.
+- 🌗 **Light / dark / system theme** — persisted, no-flash.
 - 🛡️ **Safe by default** — never auto-runs scripts, never installs without confirmation, never overwrites without `--overwrite`.
 
 ## Screenshots
@@ -175,32 +177,58 @@ See [`examples/`](./examples) for ready-made skills:
 
 ## AI provider configuration
 
-SkillForge reads provider config from environment variables (see [`.env.example`](./.env.example)). Secrets are only ever read from the environment.
+SkillForge supports **six provider families**, all switchable live from the **Settings** page (config persisted to `~/.skillforge/config.json`) or via environment variables (see [`.env.example`](./.env.example)). Secrets are only ever read from the environment or the local config file.
 
-**OpenAI-compatible (e.g. OpenAI, Together, Groq, OpenRouter, vLLM):**
+| Provider | Env value | Notes |
+|---|---|---|
+| Mock | `mock` | Offline, deterministic. Default — zero config. |
+| OpenAI-compatible | `openai-compatible` | OpenAI, OpenRouter, Groq, Together, Mistral, DeepSeek, xAI, Fireworks, Z.ai… (preset chips in Settings fill the base URL) |
+| Ollama | `ollama-local` | Local LLMs, no API key |
+| Anthropic | `anthropic` | Claude via the native Messages API |
+| Google Gemini | `gemini` | Gemini via the Generative Language API |
+| Cohere | `cohere` | Command R+ via the Cohere Chat API |
 
 ```bash
+# OpenAI-compatible
 export SKILLFORGE_AI_PROVIDER=openai-compatible
 export SKILLFORGE_OPENAI_BASE_URL=https://api.openai.com/v1
 export SKILLFORGE_OPENAI_API_KEY=sk-...
 export SKILLFORGE_MODEL=gpt-4.1
-```
 
-**Ollama (local LLM, no API key):**
+# Anthropic (Claude)
+export SKILLFORGE_AI_PROVIDER=anthropic
+export SKILLFORGE_ANTHROPIC_API_KEY=sk-ant-...
+export SKILLFORGE_MODEL=claude-3-5-sonnet-latest
 
-```bash
+# Google Gemini
+export SKILLFORGE_AI_PROVIDER=gemini
+export SKILLFORGE_GEMINI_API_KEY=AIza...
+export SKILLFORGE_MODEL=gemini-2.0-flash
+
+# Cohere
+export SKILLFORGE_AI_PROVIDER=cohere
+export SKILLFORGE_COHERE_API_KEY=...
+export SKILLFORGE_MODEL=command-r-plus
+
+# Ollama (local LLM, no API key)
 export SKILLFORGE_AI_PROVIDER=ollama-local
 export SKILLFORGE_OLLAMA_BASE_URL=http://localhost:11434
 export SKILLFORGE_MODEL=llama3.1
-```
 
-**Mock (offline / tests / CI):**
-
-```bash
+# Mock (offline / tests / CI)
 export SKILLFORGE_AI_PROVIDER=mock
 ```
 
-The mock provider returns deterministic, well-formed manifests and is the default so the project runs with zero configuration.
+The mock provider returns deterministic, well-formed manifests and is the default so the project runs with zero configuration. The Web UI's Settings page lets you pick any provider, enter the key/model, **Test connection**, and Save — no restart needed.
+
+## Eval &amp; benchmark harness
+
+Open **/eval** to test which SKILL setup is best:
+
+- **Run** — pick a skill + a test suite (a default "General" suite ships pre-seeded; each skill also runs against its own example prompts). For each prompt, the harness runs the skill's `SKILL.md` as guidance, then asks the provider (LLM-as-judge) to score the response 0–10 against the skill's own output standards. Results stream into an expandable table with color-coded scores + reasoning.
+- **Compare** — pick 2+ skills + a suite → summary (aggregate score + win-count) and per-prompt side-by-side cards with the winner highlighted. Manual override supported via the API.
+
+Runs persist to SQLite so you can track scores across iterations. A cost guard caps completions per run (`SKILLFORGE_EVAL_MAX_CALLS=50`). Never executes generated scripts — eval only calls the chat API.
 
 ## Local install directory
 

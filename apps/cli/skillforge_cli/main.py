@@ -477,10 +477,17 @@ def config() -> None:
     table.add_row("openai_base_url", s.openai_base_url)
     table.add_row("openai_api_key", "***" if s.openai_api_key else "(unset)")
     table.add_row("ollama_base_url", s.ollama_base_url)
+    table.add_row("anthropic_base_url", getattr(s, "anthropic_base_url", "https://api.anthropic.com"))
+    table.add_row("anthropic_api_key", "***" if getattr(s, "anthropic_api_key", "") else "(unset)")
+    table.add_row("gemini_base_url", getattr(s, "gemini_base_url", "https://generativelanguage.googleapis.com"))
+    table.add_row("gemini_api_key", "***" if getattr(s, "gemini_api_key", "") else "(unset)")
+    table.add_row("cohere_base_url", getattr(s, "cohere_base_url", "https://api.cohere.com"))
+    table.add_row("cohere_api_key", "***" if getattr(s, "cohere_api_key", "") else "(unset)")
     table.add_row("skills_dir", str(s.skills_dir))
     table.add_row("db_path", str(s.db_path))
     table.add_row("api_host", s.api_host)
     table.add_row("api_port", str(s.api_port))
+    table.add_row("eval_max_calls", str(getattr(s, "eval_max_calls", 50)))
     console.print(table)
 
 
