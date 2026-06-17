@@ -1,0 +1,138 @@
+# Build single-binary releases for macOS, Linux, and Windows on tag push,
+# and attach them to the GitHub Release.
+#
+# Trigger: push a tag like `v0.1.0`.
+#   git tag v0.1.0 && git push origin v0.1.0
+#
+# Each matrix job builds the Web UI export (Node) and then freezes the Python
+# API + CLI + embedded export into one executable with PyInstaller. The
+# resulting binary needs no Python or Node on the target machine.
+
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # required to upload assets to the GitHub Release
+
+jobs:
+  build-binary:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macOS (Apple Silicon)
+            runner: macos-14
+            artifact: skillforge-macos-arm64
+            pyinstaller_arch: ""
+          - os: macOS (Intel)
+            runner: macos-13
+            artifact: skillforge-macos-x86_64
+            pyinstaller_arch: ""
+          - os: Linux
+            runner: ubuntu-22.04
+            artifact: skillforge-linux-x86_64
+            pyinstaller_arch: ""
+          - os: Windows
+            runner: windows-latest
+            artifact: skillforge-windows-x86_64.exe
+            pyinstaller_arch: ""
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install API + CLI + PyInstaller
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "apps/api[dev]"
+          pip install -e apps/cli
+          pip install pyinstaller
+
+      - name: Build Web UI export
+        shell: bash
+        run: |
+          cd apps/web
+          npm install --no-audit --no-fund
+          npm run build
+          test -f out/index.html
+
+      - name: Build binary (unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          pyinstaller scripts/skillforge.spec --noconfirm --distpath dist --workpath build
+          # Sanity: the binary should print a help line with no Python on PATH.
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            ./dist/skillforge --help | head -1
+          fi
+
+      - name: Build binary (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          pyinstaller scripts/skillforge.spec --noconfirm --distpath dist --workpath build
+          Test-Path dist/skillforge.exe
+
+      - name: Rename binary for upload (unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          cp dist/skillforge "artifacts/${{ matrix.artifact }}"
+
+      - name: Rename binary for upload (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          Copy-Item dist/skillforge.exe "artifacts/${{ matrix.artifact }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: artifacts/*
+
+  release:
+    name: Publish release
+    needs: build-binary
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+          merge-multiple: true
+
+      - name: List downloaded binaries
+        run: ls -lh binaries/
+
+      - name: Create GitHub release with assets
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: binaries/*

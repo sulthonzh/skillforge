@@ -1,0 +1,53 @@
+# Run the backend test suite on every push and pull request.
+# Tests use the mock AI provider, so they run fully offline with no secrets.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test (Python ${{ matrix.python }})
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install API with dev deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "apps/api[dev]"
+
+      - name: Run tests
+        working-directory: apps/api
+        env:
+          SKILLFORGE_AI_PROVIDER: mock
+        run: pytest -q
+
+      - name: Verify Web UI builds (Node)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Build Web UI
+        working-directory: apps/web
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -f out/index.html
