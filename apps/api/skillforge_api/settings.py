@@ -38,11 +38,13 @@ class Settings(BaseSettings):
     # ---- AI provider ----
     ai_provider: str = Field(
         default="mock",
-        description="One of: mock | openai-compatible | ollama-local",
+        description="One of: mock | openai-compatible | ollama-local | anthropic",
     )
     openai_base_url: str = Field(default="https://api.openai.com/v1")
     openai_api_key: str = Field(default="")
     ollama_base_url: str = Field(default="http://localhost:11434")
+    anthropic_base_url: str = Field(default="https://api.anthropic.com")
+    anthropic_api_key: str = Field(default="")
     model: str = Field(default="gpt-4.1")
 
     # ---- Local install dir ----
@@ -59,7 +61,7 @@ class Settings(BaseSettings):
     @classmethod
     def _normalize_provider(cls, v: str) -> str:
         v = (v or "mock").strip().lower()
-        allowed = {"mock", "openai-compatible", "ollama-local"}
+        allowed = {"mock", "openai-compatible", "ollama-local", "anthropic"}
         if v not in allowed:
             raise ValueError(
                 f"SKILLFORGE_AI_PROVIDER must be one of {sorted(allowed)}, got {v!r}"

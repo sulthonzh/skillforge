@@ -176,6 +176,92 @@ class OllamaProvider(AIProvider):
 
 
 # ----------------------------------------------------------------------------
+# Anthropic provider (native Messages API)
+# ----------------------------------------------------------------------------
+
+
+class AnthropicProvider(AIProvider):
+    """Talks to Anthropic's native Messages API (``/v1/messages``).
+
+    Anthropic differs from OpenAI in three ways that matter to us:
+      * auth is ``x-api-key`` (plus an ``anthropic-version`` header), not Bearer;
+      * the system prompt is a *top-level* field, not a message role;
+      * the response payload nests content under ``content[0].text``.
+
+    Supports JSON output by instructing the model to return JSON (Anthropic has
+    no native ``response_format``), then coerced via the shared ``_coerce_json``.
+    """
+
+    name = "anthropic"
+    ANTHROPIC_VERSION = "2023-06-01"
+
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        *,
+        base_url: str | None = None,
+        api_key: str | None = None,
+        model: str | None = None,
+        transport: Any = None,
+    ) -> None:
+        self._settings = settings or get_settings()
+        self._base_url = base_url if base_url is not None else "https://api.anthropic.com"
+        self._api_key = api_key if api_key is not None else getattr(self._settings, "anthropic_api_key", "")
+        self._model = model or getattr(self._settings, "model", "") or "claude-3-5-sonnet-latest"
+        # Optional transport for tests (httpx.MockTransport). Production uses None
+        # → a fresh httpx.Client per call (module-level httpx.post).
+        self._transport = transport
+        if not self._api_key:
+            raise AIProviderError(
+                "An API key is required for the anthropic provider"
+            )
+
+    def complete(self, system: str, user: str, *, json_mode: bool = False) -> str:
+        url = self._base_url.rstrip("/") + "/v1/messages"
+        # Anthropic has no native JSON mode; append a JSON-only instruction.
+        sys_content = system
+        user_content = user
+        if json_mode:
+            user_content = user + "\n\nReturn ONLY a JSON object. No prose, no code fences."
+        payload: dict[str, Any] = {
+            "model": self._model,
+            "max_tokens": 2048,
+            "temperature": 0.2,
+            "system": sys_content,
+            "messages": [{"role": "user", "content": user_content}],
+        }
+        headers = {
+            "x-api-key": self._api_key,
+            "anthropic-version": self.ANTHROPIC_VERSION,
+            "Content-Type": "application/json",
+        }
+        try:
+            if self._transport is not None:
+                with httpx.Client(transport=self._transport) as client:
+                    resp = client.post(url, json=payload, headers=headers, timeout=60.0)
+            else:
+                resp = httpx.post(url, json=payload, headers=headers, timeout=60.0)
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise AIProviderError(f"Anthropic request failed: {exc}") from exc
+
+        data = resp.json()
+        # Response shape: {"content": [{"type": "text", "text": "..."}], ...}
+        try:
+            content = data["content"]
+            if isinstance(content, list) and content:
+                # Prefer the first text block.
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        return str(block.get("text", ""))
+                # Fall back to the first block's text field.
+                return str(content[0].get("text", ""))
+            raise AIProviderError(f"Anthropic response had no text content: {data!r}")
+        except (KeyError, IndexError, TypeError) as exc:
+            raise AIProviderError(f"Unexpected Anthropic response shape: {data!r}") from exc
+
+
+# ----------------------------------------------------------------------------
 # Factory
 # ----------------------------------------------------------------------------
 
@@ -190,6 +276,8 @@ def get_provider(settings: Settings | None = None) -> AIProvider:
         return OpenAICompatibleProvider(settings)
     if kind == "ollama-local":
         return OllamaProvider(settings)
+    if kind == "anthropic":
+        return AnthropicProvider(settings)
     raise AIProviderError(f"Unknown AI provider: {kind!r}")
 
 
@@ -220,6 +308,14 @@ def get_provider_for_config(cfg) -> AIProvider:
         )
     if kind == "ollama-local":
         return OllamaProvider(base_url=cfg.ollama_base_url, model=cfg.model)
+    if kind == "anthropic":
+        if not cfg.anthropic_api_key:
+            raise AIProviderError(
+                "An API key is required for the anthropic provider. Set it in Settings."
+            )
+        return AnthropicProvider(
+            base_url=cfg.anthropic_base_url, api_key=cfg.anthropic_api_key, model=cfg.model
+        )
     raise AIProviderError(f"Unknown AI provider: {kind!r}")
 
 
@@ -308,6 +404,37 @@ def test_provider_connection(cfg) -> dict[str, Any]:
             return {"ok": False, "detail": f"/api/tags returned HTTP {resp.status_code}"}
         except httpx.HTTPError as exc:
             return {"ok": False, "detail": f"connection failed: {exc}"}
+    if kind == "anthropic":
+        if not cfg.anthropic_api_key:
+            return {"ok": False, "detail": "No API key set"}
+        base = cfg.anthropic_base_url.rstrip("/")
+        # Anthropic exposes /v1/models (list) and /v1/messages (workload). Probe
+        # /v1/messages with a 1-token request — the path SkillForge actually uses.
+        try:
+            resp = httpx.post(
+                f"{base}/v1/messages",
+                headers={
+                    "x-api-key": cfg.anthropic_api_key,
+                    "anthropic-version": "2023-06-01",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": cfg.model or "claude-3-5-haiku-latest",
+                    "max_tokens": 1,
+                    "messages": [{"role": "user", "content": "ping"}],
+                },
+                timeout=15.0,
+            )
+            if resp.status_code == 401:
+                return {"ok": False, "detail": "Auth failed (401) — check the API key."}
+            if 200 <= resp.status_code < 300:
+                return {"ok": True, "detail": f"connected (HTTP {resp.status_code})"}
+            return {
+                "ok": False,
+                "detail": f"/v1/messages returned HTTP {resp.status_code}: {resp.text[:160]}",
+            }
+        except httpx.HTTPError as exc:
+            return {"ok": False, "detail": f"connection failed: {exc}"}
     return {"ok": False, "detail": f"unknown provider: {kind}"}
 
 
@@ -342,7 +469,40 @@ def list_models(cfg) -> list[str]:
             return [m.get("name") for m in data.get("models", []) if m.get("name")]
         except httpx.HTTPError:
             return []
+    if kind == "anthropic":
+        # Anthropic's /v1/models requires a beta header and returns a fixed list;
+        # fall back to well-known model names if the endpoint is unavailable.
+        if not cfg.anthropic_api_key:
+            return _ANTHROPIC_FALLBACK_MODELS
+        try:
+            resp = httpx.get(
+                cfg.anthropic_base_url.rstrip("/") + "/v1/models",
+                headers={
+                    "x-api-key": cfg.anthropic_api_key,
+                    "anthropic-version": "2023-06-01",
+                },
+                timeout=10.0,
+            )
+            if 200 <= resp.status_code < 300:
+                data = resp.json()
+                names = [m.get("id") for m in data.get("data", []) if m.get("id")]
+                return names or _ANTHROPIC_FALLBACK_MODELS
+            return _ANTHROPIC_FALLBACK_MODELS
+        except httpx.HTTPError:
+            return _ANTHROPIC_FALLBACK_MODELS
     return []
+
+
+# Recent Claude model IDs users are likely to pick. Used as a fallback when the
+# /v1/models endpoint is gated or unavailable.
+_ANTHROPIC_FALLBACK_MODELS = [
+    "claude-3-5-haiku-latest",
+    "claude-3-5-sonnet-latest",
+    "claude-3-7-sonnet-latest",
+    "claude-sonnet-4-20250514",
+    "claude-opus-4-20250514",
+    "claude-3-opus-latest",
+]
 
 
 # ----------------------------------------------------------------------------

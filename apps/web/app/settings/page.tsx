@@ -24,6 +24,7 @@ const PROVIDERS: { value: ProviderKind; label: string; blurb: string }[] = [
   { value: "mock", label: "Mock", blurb: "Offline, deterministic. No key needed." },
   { value: "openai-compatible", label: "OpenAI-compatible", blurb: "OpenAI, OpenRouter, Together, Groq, vLLM…" },
   { value: "ollama-local", label: "Ollama (local)", blurb: "Local LLMs via Ollama. No API key." },
+  { value: "anthropic", label: "Anthropic", blurb: "Claude models via the native Messages API." },
 ];
 
 export default function SettingsPage() {
@@ -49,6 +50,8 @@ function ProviderCard() {
   const [openaiBase, setOpenaiBase] = React.useState("");
   const [apiKey, setApiKey] = React.useState("");
   const [ollamaBase, setOllamaBase] = React.useState("");
+  const [anthropicBase, setAnthropicBase] = React.useState("");
+  const [anthropicKey, setAnthropicKey] = React.useState("");
   const [model, setModel] = React.useState("");
   const [models, setModels] = React.useState<string[]>([]);
   const [testing, setTesting] = React.useState(false);
@@ -66,6 +69,7 @@ function ProviderCard() {
         setProvider(c.provider);
         setOpenaiBase(c.openai_base_url);
         setOllamaBase(c.ollama_base_url);
+        setAnthropicBase(c.anthropic_base_url || "https://api.anthropic.com");
         setModel(c.model);
       })
       .catch((e: ApiError) => toast({ variant: "error", title: "Load failed", description: e.message }))
@@ -95,11 +99,14 @@ function ProviderCard() {
         model,
         openai_base_url: openaiBase,
         ollama_base_url: ollamaBase,
+        anthropic_base_url: anthropicBase,
       };
       if (apiKey) update.openai_api_key = apiKey;
+      if (anthropicKey) update.anthropic_api_key = anthropicKey;
       const r = await api.updateProvider(update);
       setCfg(r.provider);
       setApiKey(""); // clear the field; key is now stored
+      setAnthropicKey("");
       toast({ variant: "success", title: "Provider saved", description: `${r.provider.provider} · ${r.provider.model}` });
     } catch (e) {
       toast({ variant: "error", title: "Save failed", description: (e as ApiError).message });
@@ -117,8 +124,10 @@ function ProviderCard() {
         model,
         openai_base_url: openaiBase,
         ollama_base_url: ollamaBase,
+        anthropic_base_url: anthropicBase,
       };
       if (apiKey) update.openai_api_key = apiKey;
+      if (anthropicKey) update.anthropic_api_key = anthropicKey;
       const result = await api.testProvider(update);
       setTestResult(result);
       toast({
@@ -146,6 +155,7 @@ function ProviderCard() {
   const isMock = provider === "mock";
   const isOpenAI = provider === "openai-compatible";
   const isOllama = provider === "ollama-local";
+  const isAnthropic = provider === "anthropic";
 
   return (
     <Card>
@@ -157,14 +167,16 @@ function ProviderCard() {
         <CardDescription>
           Pick a provider and configure connection details. Active:{" "}
           <span className="font-mono text-foreground">{cfg?.provider}</span>
-          {cfg?.openai_api_key_set && <Badge variant="success" className="ml-2">key set</Badge>}
+          {(cfg?.openai_api_key_set || cfg?.anthropic_api_key_set) && (
+            <Badge variant="success" className="ml-2">key set</Badge>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {/* Provider selector */}
         <div>
           <span className="micro-label mb-2 block">Provider</span>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {PROVIDERS.map((p) => (
               <button
                 key={p.value}
@@ -206,6 +218,16 @@ function ProviderCard() {
               <Field label="Ollama base URL">
                 <Input value={ollamaBase} onChange={(e) => setOllamaBase(e.target.value)} className="font-mono text-[12px]" placeholder="http://localhost:11434" />
               </Field>
+            )}
+            {isAnthropic && (
+              <>
+                <Field label="Base URL">
+                  <Input value={anthropicBase} onChange={(e) => setAnthropicBase(e.target.value)} className="font-mono text-[12px]" placeholder="https://api.anthropic.com" />
+                </Field>
+                <Field label={`API key ${cfg?.anthropic_api_key_set ? "(stored — leave blank to keep)" : ""}`}>
+                  <Input type="password" value={anthropicKey} onChange={(e) => setAnthropicKey(e.target.value)} placeholder={cfg?.anthropic_api_key_set ? "•••• stored ••••" : "sk-ant-..."} className="font-mono text-[12px]" />
+                </Field>
+              </>
             )}
             <Field label="Model">
               <div className="flex gap-2">

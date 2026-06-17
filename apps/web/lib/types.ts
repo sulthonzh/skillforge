@@ -99,7 +99,7 @@ export interface DomainInfo {
 
 // ---- Settings / provider config ----
 
-export type ProviderKind = "mock" | "openai-compatible" | "ollama-local";
+export type ProviderKind = "mock" | "openai-compatible" | "ollama-local" | "anthropic";
 
 export interface ProviderConfigView {
   provider: ProviderKind;
@@ -107,6 +107,9 @@ export interface ProviderConfigView {
   openai_api_key_set: boolean;
   openai_api_key_preview: string;
   ollama_base_url: string;
+  anthropic_base_url: string;
+  anthropic_api_key_set: boolean;
+  anthropic_api_key_preview: string;
   model: string;
 }
 
@@ -115,6 +118,8 @@ export interface ProviderUpdate {
   openai_base_url?: string;
   openai_api_key?: string;
   ollama_base_url?: string;
+  anthropic_base_url?: string;
+  anthropic_api_key?: string;
   model?: string;
 }
 

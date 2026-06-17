@@ -29,7 +29,7 @@ from ..settings import Settings, get_settings
 
 # Fields the UI is allowed to read/write. The API key is write-only over the
 # wire (GET returns a masked preview, never the full secret).
-_ALLOWED_PROVIDERS = ("mock", "openai-compatible", "ollama-local")
+_ALLOWED_PROVIDERS = ("mock", "openai-compatible", "ollama-local", "anthropic")
 
 
 class ProviderConfig(BaseModel):
@@ -39,6 +39,8 @@ class ProviderConfig(BaseModel):
     openai_base_url: str = Field(default="")
     openai_api_key: str = Field(default="")
     ollama_base_url: str = Field(default="")
+    anthropic_base_url: str = Field(default="")
+    anthropic_api_key: str = Field(default="")
     model: str = Field(default="")
 
     def merged_over(self, settings: Settings) -> "ProviderConfig":
@@ -48,17 +50,22 @@ class ProviderConfig(BaseModel):
             openai_base_url=self.openai_base_url or settings.openai_base_url,
             openai_api_key=self.openai_api_key or settings.openai_api_key,
             ollama_base_url=self.ollama_base_url or settings.ollama_base_url,
+            anthropic_base_url=self.anthropic_base_url or getattr(settings, "anthropic_base_url", "https://api.anthropic.com"),
+            anthropic_api_key=self.anthropic_api_key or getattr(settings, "anthropic_api_key", ""),
             model=self.model or settings.model,
         )
 
     def masked(self) -> dict[str, Any]:
-        """A JSON-safe view for GET responses (API key masked)."""
+        """A JSON-safe view for GET responses (API keys masked)."""
         return {
             "provider": self.provider,
             "openai_base_url": self.openai_base_url,
             "openai_api_key_set": bool(self.openai_api_key),
             "openai_api_key_preview": _mask_key(self.openai_api_key),
             "ollama_base_url": self.ollama_base_url,
+            "anthropic_base_url": self.anthropic_base_url,
+            "anthropic_api_key_set": bool(self.anthropic_api_key),
+            "anthropic_api_key_preview": _mask_key(self.anthropic_api_key),
             "model": self.model,
         }
 
@@ -113,6 +120,8 @@ class UserConfigStore:
             openai_base_url=str(data.get("openai_base_url", "")),
             openai_api_key=str(data.get("openai_api_key", "")),
             ollama_base_url=str(data.get("ollama_base_url", "")),
+            anthropic_base_url=str(data.get("anthropic_base_url", "")),
+            anthropic_api_key=str(data.get("anthropic_api_key", "")),
             model=str(data.get("model", "")),
         )
         return cfg.merged_over(get_settings())
@@ -122,7 +131,7 @@ class UserConfigStore:
         """Merge *update* into the persisted provider config and return the result.
 
         Only known fields are accepted; ``provider`` must be one of the allowed
-        values. An empty ``openai_api_key`` is treated as "leave unchanged" so a
+        values. An empty API key field is treated as "leave unchanged" so a
         GET-then-PUT round trip doesn't wipe a stored key.
         """
         current = self.read_all()
@@ -134,15 +143,22 @@ class UserConfigStore:
         if new_provider and new_provider not in _ALLOWED_PROVIDERS:
             raise ValueError(f"Unknown provider: {new_provider!r}")
 
-        for field in ("provider", "openai_base_url", "ollama_base_url", "model"):
+        for field in (
+            "provider",
+            "openai_base_url",
+            "ollama_base_url",
+            "anthropic_base_url",
+            "model",
+        ):
             val = update.get(field)
             if val is not None and str(val).strip() != "":
                 provider_section[field] = str(val).strip()
 
-        # API key: empty string means "don't touch"; explicit "" handled above.
-        key = update.get("openai_api_key")
-        if key is not None and str(key) != "":
-            provider_section["openai_api_key"] = str(key)
+        # API keys: empty string means "don't touch"; explicit "" handled above.
+        for key_field in ("openai_api_key", "anthropic_api_key"):
+            key = update.get(key_field)
+            if key is not None and str(key) != "":
+                provider_section[key_field] = str(key)
 
         provider_section["updated_at"] = datetime.now(timezone.utc).isoformat()
         current["provider"] = provider_section
