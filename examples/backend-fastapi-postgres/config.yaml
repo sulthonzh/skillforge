@@ -1,0 +1,103 @@
+schema_version: '1.0'
+skill:
+  name: backend-fastapi-postgres
+  title: Backend Fastapi Postgres Skill
+  domain: Backend Engineering
+  description: 'Helps engineers with backend engineering work. Based on: "I need a
+    backend skill for FastAPI, PostgreSQL, SQLAlchemy, Alembic, Pytest, Docker, GitHub
+    Actions, and OpenTelemetry"'
+  version: 0.1.0
+  status: draft
+ai:
+  generated_by: skillforge
+  planner_model: gpt-4.1
+  created_at: '2026-06-17T17:01:59.035797+00:00'
+tools:
+- name: Python
+  category: languages
+  enabled: true
+  reason: Strong ecosystem for backend, data, and AI engineering with great tooling.
+- name: FastAPI
+  category: frameworks
+  enabled: true
+  reason: Modern async Python API framework with automatic OpenAPI docs.
+- name: PostgreSQL
+  category: databases
+  enabled: true
+  reason: Reliable relational database for production workloads.
+- name: SQLAlchemy
+  category: orm
+  enabled: true
+  reason: Mature Python ORM and SQL toolkit.
+- name: Alembic
+  category: migration
+  enabled: true
+  reason: Standard migration tool for SQLAlchemy projects.
+- name: Pytest
+  category: testing
+  enabled: true
+  reason: Simple, powerful Python testing framework.
+- name: Docker
+  category: container
+  enabled: true
+  reason: Standard packaging and reproducible local environments.
+- name: GitHub Actions
+  category: cicd
+  enabled: true
+  reason: OSS-friendly CI/CD with hosted runners.
+- name: OpenTelemetry
+  category: observability
+  enabled: true
+  reason: Vendor-neutral tracing, metrics, and logs instrumentation.
+architecture:
+  patterns:
+  - Layered Architecture
+  - Domain-Driven Design
+  - Test-Driven Development
+workflow:
+- Clarify API requirements and consumers.
+- Design domain models and entities.
+- Define the database schema.
+- Implement API routes and the service layer.
+- Add a repository layer for persistence.
+- Add database migrations.
+- Write unit and integration tests.
+- Add Docker setup for local development.
+- Configure CI/CD for tests and builds.
+- Instrument with observability.
+best_practices:
+- Keep business logic independent of framework code.
+- Make every change testable and reversible.
+- Prefer explicit configuration over implicit magic.
+- Use structured logging throughout.
+- Add observability before going to production.
+- Avoid overengineering early; extract abstractions when patterns repeat.
+output_standards:
+- Clear technical explanation of each choice.
+- Maintainable, readable code examples.
+- Testable implementation guidance.
+- Production-aware recommendations.
+- Security and reliability considerations.
+outputs:
+  required_files:
+  - SKILL.md
+  - README.md
+  - config.yaml
+  required_directories:
+  - prompts
+  - templates
+  - scripts
+  - examples
+safety:
+  auto_execute_scripts: false
+  require_user_confirmation_before_install: true
+  allow_network_access: false
+example_prompts:
+- Help me start a new backend engineering project matching this need.
+- Review my existing backend engineering setup against these best practices.
+- Generate starter templates for the recommended backend engineering stack.
+- I need a backend skill for FastAPI, PostgreSQL, SQLAlchemy, Alembic, Pytest, Docker,
+  GitHub Actions, and OpenTelemetry
+example_outputs:
+- A concise explanation of the chosen stack and the rationale per tool.
+- Runnable, well-structured code templates that follow the workflow.

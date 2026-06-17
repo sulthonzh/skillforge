@@ -1,0 +1,13 @@
+-- dbt model scaffold for {{ skill.title }}.
+-- Reference only. Replace with your actual model logic.
+with source as (
+    select * from {{ ref("stg_source") }}
+),
+final as (
+    select
+        id,
+        created_at,
+        -- TODO: add transformations
+    from source
+)
+select * from final

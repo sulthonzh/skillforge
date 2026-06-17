@@ -1,0 +1,15 @@
+"""RAG chain scaffold for {{ skill.title }}.
+
+Reference only — wire up your chosen vector store and LLM provider.
+"""
+from __future__ import annotations
+
+
+def build_chain():
+    # TODO: implement retrieval + generation using LangChain/LlamaIndex.
+    raise NotImplementedError
+
+
+def answer(question: str) -> str:
+    chain = build_chain()
+    return chain.invoke(question)

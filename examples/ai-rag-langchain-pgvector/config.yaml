@@ -1,0 +1,95 @@
+schema_version: '1.0'
+skill:
+  name: ai-rag-langchain-pgvector
+  title: Ai Rag Langchain Pgvector Skill
+  domain: AI Engineering
+  description: 'Helps engineers with ai engineering work. Based on: "AI RAG skill
+    with LangChain, pgvector, RAGAS evaluation, and Ollama"'
+  version: 0.1.0
+  status: draft
+ai:
+  generated_by: skillforge
+  planner_model: gpt-4.1
+  created_at: '2026-06-17T17:01:59.060184+00:00'
+tools:
+- name: LangChain
+  category: frameworks
+  enabled: true
+  reason: Composable framework for LLM applications.
+- name: RAG
+  category: retrieval
+  enabled: true
+  reason: Recommended retrieval tool for this skill's stack.
+- name: pgvector
+  category: vector_databases
+  enabled: true
+  reason: Vector storage inside PostgreSQL.
+- name: Ollama
+  category: providers
+  enabled: true
+  reason: Recommended providers tool for this skill's stack.
+- name: RAGAS
+  category: evaluation
+  enabled: true
+  reason: Recommended evaluation tool for this skill's stack.
+- name: Python
+  category: languages
+  enabled: true
+  reason: Strong ecosystem for backend, data, and AI engineering with great tooling.
+- name: LlamaIndex
+  category: frameworks
+  enabled: true
+  reason: Data framework for RAG and retrieval pipelines.
+- name: Qdrant
+  category: vector_databases
+  enabled: true
+  reason: Production-ready vector search engine.
+architecture:
+  patterns:
+  - Retrieval-Augmented Generation
+  - Evaluation-Driven Development
+  - Prompt Versioning
+workflow:
+- Define the use case and success metrics.
+- Choose a retrieval strategy and vector store.
+- Build ingestion and embedding pipelines.
+- Implement the retrieval and generation chain.
+- Add prompt templates and versioning.
+- Evaluate with golden datasets.
+- Add observability for traces and feedback.
+- Configure CI for prompt and eval changes.
+best_practices:
+- Keep business logic independent of framework code.
+- Make every change testable and reversible.
+- Prefer explicit configuration over implicit magic.
+- Use structured logging throughout.
+- Add observability before going to production.
+- Avoid overengineering early; extract abstractions when patterns repeat.
+output_standards:
+- Clear technical explanation of each choice.
+- Maintainable, readable code examples.
+- Testable implementation guidance.
+- Production-aware recommendations.
+- Security and reliability considerations.
+outputs:
+  required_files:
+  - SKILL.md
+  - README.md
+  - config.yaml
+  required_directories:
+  - prompts
+  - templates
+  - scripts
+  - examples
+safety:
+  auto_execute_scripts: false
+  require_user_confirmation_before_install: true
+  allow_network_access: false
+example_prompts:
+- Help me start a new ai engineering project matching this need.
+- Review my existing ai engineering setup against these best practices.
+- Generate starter templates for the recommended ai engineering stack.
+- AI RAG skill with LangChain, pgvector, RAGAS evaluation, and Ollama
+example_outputs:
+- A concise explanation of the chosen stack and the rationale per tool.
+- Runnable, well-structured code templates that follow the workflow.

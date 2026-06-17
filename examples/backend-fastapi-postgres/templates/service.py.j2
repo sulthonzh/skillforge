@@ -1,0 +1,21 @@
+"""Service layer scaffold for {{ skill.title }}.
+
+Keep business logic here, independent of the framework and the database.
+"""
+from __future__ import annotations
+
+from typing import Protocol
+
+
+class Repository(Protocol):
+    """Persistence interface implemented by the repository layer."""
+    # TODO: define the methods your service needs.
+    pass
+
+
+class {{ skill.name | replace("-", "_") | capitalize }}Service:
+    def __init__(self, repo: Repository) -> None:
+        self._repo = repo
+
+    # TODO: implement domain operations.
+    pass

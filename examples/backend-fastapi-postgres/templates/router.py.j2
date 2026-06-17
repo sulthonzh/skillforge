@@ -1,0 +1,14 @@
+"""FastAPI router scaffold for {{ skill.title }}."""
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException
+
+router = APIRouter(prefix="/api/v1/{{ skill.name }}", tags=["{{ skill.name }}"])
+
+
+@router.get("/health")
+async def health() -> dict:
+    return {"status": "ok"}
+
+
+# TODO: add endpoints that delegate to the service layer.

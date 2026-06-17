@@ -1,0 +1,94 @@
+"""Application settings.
+
+All configuration is read from environment variables. Secrets (API keys) are
+never written to disk and never logged.
+"""
+
+from __future__ import annotations
+
+import os
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _default_skills_dir() -> Path:
+    """Default to ``~/.skillforge/skills`` (expanded)."""
+    return Path.home() / ".skillforge" / "skills"
+
+
+class Settings(BaseSettings):
+    """Runtime configuration for the SkillForge API.
+
+    The default provider is ``mock`` so the service runs offline with no
+    configuration at all. Override via environment variables (see the root
+    ``.env.example``).
+    """
+
+    model_config = SettingsConfigDict(
+        env_prefix="SKILLFORGE_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=False,
+    )
+
+    # ---- AI provider ----
+    ai_provider: str = Field(
+        default="mock",
+        description="One of: mock | openai-compatible | ollama-local",
+    )
+    openai_base_url: str = Field(default="https://api.openai.com/v1")
+    openai_api_key: str = Field(default="")
+    ollama_base_url: str = Field(default="http://localhost:11434")
+    model: str = Field(default="gpt-4.1")
+
+    # ---- Local install dir ----
+    skills_dir: Path = Field(default_factory=_default_skills_dir)
+
+    # ---- Server ----
+    api_host: str = Field(default="0.0.0.0")
+    api_port: int = Field(default=8000)
+
+    # ---- Database ----
+    db_path: Path = Field(default=Path("skillforge.db"))
+
+    @field_validator("ai_provider", mode="after")
+    @classmethod
+    def _normalize_provider(cls, v: str) -> str:
+        v = (v or "mock").strip().lower()
+        allowed = {"mock", "openai-compatible", "ollama-local"}
+        if v not in allowed:
+            raise ValueError(
+                f"SKILLFORGE_AI_PROVIDER must be one of {sorted(allowed)}, got {v!r}"
+            )
+        return v
+
+    @field_validator("skills_dir", mode="after")
+    @classmethod
+    def _expand_skills_dir(cls, v: Path) -> Path:
+        # Expand ``~`` if a user literally typed it via an env var.
+        return Path(os.path.expanduser(str(v))).expanduser().resolve(strict=False)
+
+    @field_validator("db_path", mode="after")
+    @classmethod
+    def _expand_db_path(cls, v: Path) -> Path:
+        return Path(os.path.expanduser(str(v)))
+
+    @property
+    def db_url(self) -> str:
+        return f"sqlite:///{self.db_path}"
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """Return a process-wide cached :class:`Settings` instance."""
+    return Settings()
+
+
+def reload_settings() -> Settings:
+    """Clear the settings cache and return a fresh instance (for tests)."""
+    get_settings.cache_clear()
+    return get_settings()

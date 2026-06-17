@@ -1,0 +1,21 @@
+# API-only image for the two-service docker-compose profile.
+# (The single-container image is apps/api/Dockerfile, which also builds the UI.)
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+COPY pyproject.toml README.md ./
+COPY skillforge_api ./skillforge_api
+RUN pip install --no-cache-dir .
+
+EXPOSE 8000
+
+ENV SKILLFORGE_AI_PROVIDER=mock \
+    SKILLFORGE_API_HOST=0.0.0.0 \
+    SKILLFORGE_API_PORT=8000
+
+CMD ["sh", "-c", "uvicorn skillforge_api.main:app --host ${SKILLFORGE_API_HOST:-0.0.0.0} --port ${SKILLFORGE_API_PORT:-8000}"]

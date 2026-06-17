@@ -1,0 +1,90 @@
+# SkillForge local stack.
+#
+# Recommended (one container, one port — the "single binary" experience):
+#   docker compose --profile single up --build
+#   → http://localhost:8000 (API + Web UI together)
+#
+# Alternative (two services, separate ports):
+#   docker compose up --build
+#   → API on :8000, Web UI on :3000
+#
+# Installed skills persist in a named volume.
+
+services:
+  # --------------------------------------------------------------------------
+  # Single-container profile: API + Web UI on one port.
+  # --------------------------------------------------------------------------
+  all:
+    profiles: ["single"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: skillforge
+    container_name: skillforge
+    environment:
+      SKILLFORGE_AI_PROVIDER: ${SKILLFORGE_AI_PROVIDER:-mock}
+      SKILLFORGE_OPENAI_BASE_URL: ${SKILLFORGE_OPENAI_BASE_URL:-https://api.openai.com/v1}
+      SKILLFORGE_OPENAI_API_KEY: ${SKILLFORGE_OPENAI_API_KEY:-}
+      SKILLFORGE_OLLAMA_BASE_URL: ${SKILLFORGE_OLLAMA_BASE_URL:-http://localhost:11434}
+      SKILLFORGE_MODEL: ${SKILLFORGE_MODEL:-gpt-4.1}
+      SKILLFORGE_WEB_DIR: /opt/skillforge/web
+      SKILLFORGE_SKILLS_DIR: /data/skills
+      SKILLFORGE_API_HOST: 0.0.0.0
+      SKILLFORGE_API_PORT: "8000"
+      SKILLFORGE_DB_PATH: /data/skillforge.db
+    ports:
+      - "8000:8000"
+    volumes:
+      - skillforge-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; urllib.request.urlopen('http://localhost:8000/health'); sys.exit(0)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # --------------------------------------------------------------------------
+  # Two-service profile (default): API and Web UI in separate containers.
+  # --------------------------------------------------------------------------
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile.api-only
+    image: skillforge-api
+    container_name: skillforge-api
+    environment:
+      SKILLFORGE_AI_PROVIDER: ${SKILLFORGE_AI_PROVIDER:-mock}
+      SKILLFORGE_OPENAI_BASE_URL: ${SKILLFORGE_OPENAI_BASE_URL:-https://api.openai.com/v1}
+      SKILLFORGE_OPENAI_API_KEY: ${SKILLFORGE_OPENAI_API_KEY:-}
+      SKILLFORGE_OLLAMA_BASE_URL: ${SKILLFORGE_OLLAMA_BASE_URL:-http://localhost:11434}
+      SKILLFORGE_MODEL: ${SKILLFORGE_MODEL:-gpt-4.1}
+      SKILLFORGE_SKILLS_DIR: /data/skills
+      SKILLFORGE_API_HOST: 0.0.0.0
+      SKILLFORGE_API_PORT: "8000"
+      SKILLFORGE_DB_PATH: /data/skillforge.db
+    ports:
+      - "8000:8000"
+    volumes:
+      - skillforge-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; urllib.request.urlopen('http://localhost:8000/health'); sys.exit(0)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        # In two-service mode the Web UI is on its own port, so point it at the API.
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    image: skillforge-web
+    container_name: skillforge-web
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+
+volumes:
+  skillforge-data:

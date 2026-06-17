@@ -1,0 +1,67 @@
+schema_version: "{{ manifest.schema_version }}"
+
+skill:
+  name: {{ skill.name }}
+  title: {{ skill.title }}
+  domain: {{ skill.domain }}
+  description: {{ skill.description }}
+  version: {{ skill.version }}
+  status: {{ skill.status }}
+
+ai:
+  generated_by: {{ ai.generated_by }}
+  planner_model: {{ ai.planner_model or "" }}
+  created_at: {{ ai.created_at }}
+
+tools:
+{% for tool in tools %}
+  - name: {{ tool.name }}
+    category: {{ tool.category }}
+    enabled: {{ tool.enabled | string | lower }}
+    reason: {{ tool.reason }}
+{% endfor %}
+architecture:
+  patterns:
+{% for pattern in architecture.patterns %}
+    - {{ pattern }}
+{% endfor %}
+
+workflow:
+{% for step in workflow %}
+  - {{ step }}
+{% endfor %}
+
+best_practices:
+{% for item in best_practices %}
+  - {{ item }}
+{% endfor %}
+
+output_standards:
+{% for item in output_standards %}
+  - {{ item }}
+{% endfor %}
+
+outputs:
+  required_files:
+{% for f in outputs.required_files %}
+    - {{ f }}
+{% endfor %}
+  required_directories:
+{% for d in outputs.required_directories %}
+    - {{ d }}
+{% endfor %}
+
+safety:
+  auto_execute_scripts: {{ safety.auto_execute_scripts | string | lower }}
+  require_user_confirmation_before_install: {{ safety.require_user_confirmation_before_install | string | lower }}
+  allow_network_access: {{ safety.allow_network_access | string | lower }}
+
+example_prompts:
+{% for prompt in example_prompts %}
+  - {{ prompt }}
+{% endfor %}
+
+example_outputs:
+{% for item in example_outputs %}
+  - {{ item }}
+{% endfor %}

@@ -1,0 +1,96 @@
+schema_version: '1.0'
+skill:
+  name: data-airflow-dbt-bigquery
+  title: Data Airflow Dbt Bigquery Skill
+  domain: Data Engineering
+  description: 'Helps engineers with data engineering work. Based on: "data engineering
+    skill for Airflow, dbt, BigQuery, Great Expectations, and CI/CD"'
+  version: 0.1.0
+  status: draft
+ai:
+  generated_by: skillforge
+  planner_model: gpt-4.1
+  created_at: '2026-06-17T17:01:59.049499+00:00'
+tools:
+- name: Airflow
+  category: orchestration
+  enabled: true
+  reason: Battle-tested DAG-based data orchestrator.
+- name: dbt
+  category: transformation
+  enabled: true
+  reason: SQL transformation framework with tests and documentation.
+- name: BigQuery
+  category: warehouses
+  enabled: true
+  reason: Serverless, scalable data warehouse.
+- name: Great Expectations
+  category: data_quality
+  enabled: true
+  reason: Recommended data_quality tool for this skill's stack.
+- name: Python
+  category: languages
+  enabled: true
+  reason: Strong ecosystem for backend, data, and AI engineering with great tooling.
+- name: Dagster
+  category: orchestration
+  enabled: true
+  reason: Asset-centric data orchestrator with strong typing.
+- name: Pandas
+  category: transformation
+  enabled: true
+  reason: Recommended transformation tool for this skill's stack.
+- name: Snowflake
+  category: warehouses
+  enabled: true
+  reason: Managed cloud data warehouse.
+architecture:
+  patterns:
+  - Medallion Architecture
+  - Idempotent Pipelines
+  - Data Contracts
+workflow:
+- Profile source systems and define SLAs.
+- Model the warehouse (staging → marts).
+- Build ingestion pipelines.
+- Implement dbt transformations.
+- Add data-quality checks.
+- Backfill and validate historical data.
+- Schedule with an orchestrator.
+- Add CI/CD for pipeline changes.
+- Instrument pipelines with observability.
+best_practices:
+- Keep business logic independent of framework code.
+- Make every change testable and reversible.
+- Prefer explicit configuration over implicit magic.
+- Use structured logging throughout.
+- Add observability before going to production.
+- Avoid overengineering early; extract abstractions when patterns repeat.
+output_standards:
+- Clear technical explanation of each choice.
+- Maintainable, readable code examples.
+- Testable implementation guidance.
+- Production-aware recommendations.
+- Security and reliability considerations.
+outputs:
+  required_files:
+  - SKILL.md
+  - README.md
+  - config.yaml
+  required_directories:
+  - prompts
+  - templates
+  - scripts
+  - examples
+safety:
+  auto_execute_scripts: false
+  require_user_confirmation_before_install: true
+  allow_network_access: false
+example_prompts:
+- Help me start a new data engineering project matching this need.
+- Review my existing data engineering setup against these best practices.
+- Generate starter templates for the recommended data engineering stack.
+- data engineering skill for Airflow, dbt, BigQuery, Great Expectations, and CI/CD
+example_outputs:
+- A concise explanation of the chosen stack and the rationale per tool.
+- Runnable, well-structured code templates that follow the workflow.

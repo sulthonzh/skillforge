@@ -1,0 +1,30 @@
+"""Pipeline scaffold for {{ skill.title }}.
+
+Reference only — adapt to Airflow or Dagster idioms.
+"""
+from __future__ import annotations
+
+
+def extract() -> None:
+    """TODO: pull source data."""
+    pass
+
+
+def transform() -> None:
+    """TODO: apply transformations (e.g. dbt)."""
+    pass
+
+
+def load() -> None:
+    """TODO: write to the warehouse."""
+    pass
+
+
+def run() -> None:
+    extract()
+    transform()
+    load()
+
+
+if __name__ == "__main__":
+    run()

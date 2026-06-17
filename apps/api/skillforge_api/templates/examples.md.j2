@@ -1,0 +1,31 @@
+# Examples for {{ skill.title }}
+
+Realistic example prompts and the shape of expected outputs.
+
+## Example Prompts
+
+{% for prompt in example_prompts %}
+### {{ loop.index }}. {{ prompt }}
+
+{% endfor %}
+
+## Example Output Shape
+
+A good response from this skill should:
+
+{% for item in output_standards %}
+- {{ item }}
+{% endfor %}
+
+## Sample Snippet
+
+```bash
+# Use the recommended tools to scaffold this skill's domain.
+{% for tool in tools[:4] %}
+# - {{ tool.name }}: {{ tool.reason }}
+{% endfor %}
+```
+
+---
+
+_This file is a reference. SkillForge never auto-executes scripts._

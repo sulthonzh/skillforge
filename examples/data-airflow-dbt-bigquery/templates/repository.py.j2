@@ -1,0 +1,15 @@
+"""Repository layer scaffold for {{ skill.title }}.
+
+Encapsulates persistence so the service layer stays framework-agnostic.
+"""
+from __future__ import annotations
+
+from typing import Any
+
+
+class {{ skill.name | replace("-", "_") | capitalize }}Repository:
+    def __init__(self, session: Any) -> None:
+        self._session = session
+
+    # TODO: implement CRUD + domain-specific queries.
+    pass

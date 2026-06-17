@@ -1,0 +1,117 @@
+# =============================================================================
+# SkillForge tool catalog
+# =============================================================================
+# Editable by OSS contributors. The AI planner uses this catalog to recommend a
+# *specific* tool stack for an engineering need. Add a domain or a tool here and
+# the planner will consider it automatically.
+#
+# Structure:
+#   domains:
+#     <key>:                       # internal key, also matched against user input
+#       label: <Human label>       # shown in the UI and stored on the manifest
+#       keywords: [...]            # extra hints used by the keyword matcher
+#       recommended_tools:
+#         <category>:              # e.g. language, framework, database, orm, ...
+#           - <ToolName>           # exact name used in the generated manifest
+# =============================================================================
+
+schema_version: "1.0"
+
+domains:
+  backend:
+    label: Backend Engineering
+    keywords: [api, rest, graphql, service, server, backend, microservice, endpoint]
+    recommended_tools:
+      languages: [Python, Go, TypeScript]
+      frameworks: [FastAPI, Django, Flask, Gin, Fiber, NestJS, Express, ASP.NET Core]
+      databases: [PostgreSQL, MySQL, SQLite, MongoDB, Redis]
+      orm: [SQLAlchemy, SQLModel, Prisma, GORM, TypeORM]
+      migration: [Alembic, Flyway, goose, Prisma Migrate]
+      testing: [Pytest, Go Test, Jest, xUnit]
+      container: [Docker]
+      cicd: [GitHub Actions, GitLab CI]
+      observability: [OpenTelemetry, Prometheus, Grafana]
+
+  data_engineering:
+    label: Data Engineering
+    keywords: [etl, elt, pipeline, data, warehouse, lakehouse, ingestion, batch, orchestration]
+    recommended_tools:
+      languages: [Python, SQL]
+      orchestration: [Airflow, Dagster, Prefect]
+      transformation: [dbt, Pandas, Polars, Spark]
+      warehouses: [BigQuery, Snowflake, ClickHouse, PostgreSQL]
+      streaming: [Kafka, Redpanda, Pulsar]
+      data_quality: [Great Expectations, Soda, dbt tests]
+      cicd: [GitHub Actions]
+      observability: [OpenTelemetry, Grafana]
+
+  devops:
+    label: DevOps
+    keywords: [devops, infra, infrastructure, deploy, deployment, kubernetes, k8s, terraform, helm]
+    recommended_tools:
+      languages: [Python, Go, Bash]
+      container: [Docker]
+      orchestration: [Kubernetes]
+      package: [Helm, Kustomize]
+      iac: [Terraform, Pulumi, OpenTofu]
+      cicd: [GitHub Actions, GitLab CI]
+      observability: [Prometheus, Grafana, Loki, OpenTelemetry]
+      secrets: [Vault, SOPS]
+
+  ai_engineering:
+    label: AI Engineering
+    keywords: [ai, llm, rag, ml, machine learning, embedding, agent, vector, prompt]
+    recommended_tools:
+      languages: [Python]
+      frameworks: [LangChain, LlamaIndex, Haystack]
+      retrieval: [RAG]
+      vector_databases: [pgvector, Qdrant, Chroma, Weaviate, Pinecone]
+      providers: [OpenAI-compatible API, Ollama]
+      evaluation: [RAGAS, DeepEval]
+      orchestration: [LangGraph]
+      observability: [LangSmith, OpenTelemetry]
+
+  testing_qa:
+    label: Testing & QA
+    keywords: [test, testing, qa, quality, automation, e2e, integration, unit]
+    recommended_tools:
+      languages: [Python, TypeScript]
+      unit: [Pytest, Jest, Vitest]
+      e2e: [Playwright, Cypress, Selenium]
+      api_testing: [HTTPie, Postman, schemathesis]
+      load: [k6, Locust]
+      coverage: [coverage.py, Istanbul]
+
+  observability:
+    label: Observability
+    keywords: [observability, monitoring, tracing, metrics, logs, opentelemetry, apm]
+    recommended_tools:
+      languages: [Python, Go]
+      instrumentation: [OpenTelemetry]
+      metrics: [Prometheus]
+      logs: [Loki, ELK]
+      traces: [Tempo, Jaeger]
+      dashboards: [Grafana]
+      alerting: [Alertmanager]
+
+  web_scraping:
+    label: Web Scraping
+    keywords: [scraping, crawler, scrape, spider, extraction, automation]
+    recommended_tools:
+      languages: [Python, TypeScript]
+      frameworks: [Scrapy, Playwright, BeautifulSoup]
+      parsers: [lxml, selectolax]
+      proxies: [Crawlbase, Bright Data]
+      storage: [PostgreSQL, JSONL, Parquet]
+
+  frontend:
+    label: Frontend Engineering
+    keywords: [frontend, front-end, ui, web, react, vue, next, spa, css]
+    recommended_tools:
+      languages: [TypeScript]
+      frameworks: [Next.js, React, Vue, SvelteKit, Nuxt]
+      styling: [Tailwind CSS, CSS Modules]
+      components: [shadcn/ui, Radix UI, Material UI]
+      state: [Zustand, Redux Toolkit, Pinia]
+      testing: [Vitest, Playwright, Testing Library]
+      build: [Vite, Turbopack]
