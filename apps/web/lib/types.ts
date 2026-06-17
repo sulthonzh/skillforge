@@ -277,3 +277,22 @@ export interface ToolRunResult {
   command: string[];
 }
 
+// ---- Deploy (symlink to AI tools) ----
+
+export interface DeployTarget {
+  key: string;
+  label: string;
+  skills_dir: string;
+  installed: boolean;
+}
+
+export interface DeployStatus {
+  target: string;
+  label: string;
+  skills_dir: string;
+  tool_installed: boolean;
+  deployed: boolean;
+  method: string | null;
+  path: string | null;
+}
+

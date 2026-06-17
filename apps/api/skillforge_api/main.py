@@ -24,6 +24,7 @@ from . import __version__
 from .routers import (
     bridge as bridge_router,
     chat,
+    deploy as deploy_router,
     eval as eval_router,
     health,
     marketplace as marketplace_router,
@@ -105,6 +106,7 @@ def create_app(static_dir: str | Path | None = None) -> FastAPI:
     app.include_router(eval_router.router)
     app.include_router(marketplace_router.router)
     app.include_router(bridge_router.router)
+    app.include_router(deploy_router.router)
     app.include_router(templates.router)
 
     # 2) Optionally serve the bundled Web UI from the same origin.

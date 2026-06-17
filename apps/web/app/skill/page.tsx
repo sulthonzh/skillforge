@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToolsPanel } from "@/components/ToolsPanel";
+import { DeployPanel } from "@/components/DeployPanel";
 import { api, ApiError } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
 import type { InstalledSkill } from "@/lib/types";
@@ -121,6 +122,7 @@ function SkillDetailContent() {
           </CardContent>
         </Card>
         <ToolsPanel skillName={skill.name} />
+        <DeployPanel skillName={skill.name} />
       </>
       ) : null}
     </>

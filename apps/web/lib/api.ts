@@ -30,6 +30,8 @@ import type {
   SkillManifest,
   SuggestToolsResponse,
   Tool,
+  DeployStatus,
+  DeployTarget,
   ToolPreview,
   ToolRunResult,
   ValidateResponse,
@@ -200,4 +202,13 @@ export const api = {
     postJson<ToolPreview>(`/api/skills/${encodeURIComponent(skill_name)}/tools/${encodeURIComponent(script)}/preview`, {}),
   runTool: (skill_name: string, script: string, confirm: boolean, args = "") =>
     postJson<ToolRunResult>(`/api/skills/${encodeURIComponent(skill_name)}/tools/${encodeURIComponent(script)}/run`, { confirm, args }),
+
+  // ---- deploy (symlink to AI tools) ----
+  listDeployTargets: () => getJson<{ targets: DeployTarget[] }>("/api/deploy/targets"),
+  deployStatus: (skill_name: string) =>
+    getJson<{ skill_name: string; targets: DeployStatus[] }>(`/api/deploy/${encodeURIComponent(skill_name)}/status`),
+  deploySymlink: (skill_name: string, target_key?: string, method = "symlink") =>
+    postJson<{ skill_name: string; deployments: any[] }>("/api/deploy/symlink", { skill_name, target_key, method }),
+  undeploy: (skill_name: string, target_key?: string) =>
+    postJson<{ skill_name: string; removals: any[] }>("/api/deploy/undeploy", { skill_name, target_key }),
 };
