@@ -30,6 +30,8 @@ import type {
   SkillManifest,
   SuggestToolsResponse,
   Tool,
+  ToolPreview,
+  ToolRunResult,
   ValidateResponse,
 } from "./types";
 
@@ -190,4 +192,12 @@ export const api = {
   marketplaceTokens: () => getJson<{ tokens: BridgeToken[] }>("/api/marketplace/tokens"),
   marketplaceRevokeToken: (id: string) =>
     delJson<{ revoked: boolean }>(`/api/marketplace/tokens/${id}`),
+
+  // ---- skill tools (generated helper scripts) ----
+  listSkillTools: (skill_name: string) =>
+    getJson<ToolPreview[]>(`/api/skills/${encodeURIComponent(skill_name)}/tools`),
+  previewTool: (skill_name: string, script: string) =>
+    postJson<ToolPreview>(`/api/skills/${encodeURIComponent(skill_name)}/tools/${encodeURIComponent(script)}/preview`, {}),
+  runTool: (skill_name: string, script: string, confirm: boolean, args = "") =>
+    postJson<ToolRunResult>(`/api/skills/${encodeURIComponent(skill_name)}/tools/${encodeURIComponent(script)}/run`, { confirm, args }),
 };

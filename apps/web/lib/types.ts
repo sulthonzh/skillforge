@@ -259,3 +259,21 @@ export interface PendingApproval {
   created_at: string;
 }
 
+// ---- Skill tools (generated helper scripts) ----
+
+export interface ToolPreview {
+  script: string;
+  command: string[];
+  cwd: string;
+  runnable: boolean;
+  reason: string;
+}
+
+export interface ToolRunResult {
+  exit_code: number;
+  stdout: string;
+  stderr: string;
+  timed_out: boolean;
+  command: string[];
+}
+

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from ..schemas.skill import (
     GenerateFilesRequest,
@@ -70,3 +71,83 @@ async def install_skill(req: InstallRequest) -> InstallResponse:
         version_bump_level=outcome.version_bump.level if outcome.version_bump else None,
         version_bump_reason=outcome.version_bump.reason if outcome.version_bump else None,
     )
+
+
+# ---- Generated tool execution (opt-in, with consent) ----
+
+
+class ToolPreviewResponse(BaseModel):
+    script: str
+    command: list[str]
+    cwd: str
+    runnable: bool
+    reason: str = ""
+
+
+class ToolRunRequest(BaseModel):
+    confirm: bool = False
+    args: str = ""
+
+
+class ToolRunResponse(BaseModel):
+    exit_code: int
+    stdout: str
+    stderr: str
+    timed_out: bool
+    command: list[str]
+
+
+@router.get("/{skill_name}/tools", response_model=list[ToolPreviewResponse])
+async def list_skill_tools(skill_name: str):
+    """List the generated tool scripts available for a skill (with runnability)."""
+    from ..services.skill_tools.executor import ExecutorError, ToolExecutor
+
+    try:
+        executor = ToolExecutor()
+        from pathlib import Path
+        from ..services.skill_registry import SkillRegistry
+
+        record = SkillRegistry().get(skill_name)
+        if record is None:
+            raise HTTPException(status_code=404, detail=f"No installed skill named {skill_name!r}")
+        tools_dir = Path(record.path) / "tools"
+        if not tools_dir.is_dir():
+            return []
+        result = []
+        for script_file in sorted(tools_dir.iterdir()):
+            if script_file.is_file() and script_file.name not in ("Makefile",):
+                preview = executor.preview(skill_name, script_file.name)
+                result.append(ToolPreviewResponse(**preview.__dict__))
+        return result
+    except ExecutorError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{skill_name}/tools/{script}/preview", response_model=ToolPreviewResponse)
+async def preview_tool(skill_name: str, script: str):
+    """Dry-run preview of a generated tool — what would run, without running it."""
+    from ..services.skill_tools.executor import ExecutorError, ToolExecutor
+
+    try:
+        preview = ToolExecutor().preview(skill_name, script)
+        return ToolPreviewResponse(**preview.__dict__)
+    except ExecutorError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{skill_name}/tools/{script}/run", response_model=ToolRunResponse)
+async def run_tool(skill_name: str, script: str, req: ToolRunRequest):
+    """Run a generated tool. Requires explicit confirmation."""
+    from ..services.skill_tools.executor import ExecutorError, ToolExecutor
+
+    try:
+        result = ToolExecutor().run(skill_name, script, confirm=req.confirm, args=req.args)
+        return ToolRunResponse(
+            exit_code=result.exit_code,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            timed_out=result.timed_out,
+            command=result.command,
+        )
+    except ExecutorError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -74,7 +74,53 @@ class SkillGenerator:
             )
         )
 
+        # 7) tools/ + stack configs — real, runnable artifacts driven by the
+        # skill's tool set (helper scripts, CLI, MCP wrappers, configs).
+        files.extend(self._tool_artifact_files(manifest))
+
         return files
+
+    # ------------------------------------------------------------------ tools
+    def _tool_artifact_files(self, manifest: SkillManifest) -> list[GeneratedFile]:
+        """Emit real, runnable tool artifacts (scripts, configs, CLI, MCP)."""
+        from .skill_tools.registry import get_registry
+        from .skill_tools.scripts import SCRIPTS
+
+        registry = get_registry()
+        artifacts = registry.artifacts_for(manifest)
+        if not artifacts:
+            return []
+
+        out: list[GeneratedFile] = []
+        for art in artifacts:
+            content = registry.render_artifact(art, manifest)
+            out.append(GeneratedFile(art.path, content))
+
+        # Always emit the skill CLI + Makefile + MCP server when there are tools.
+        cli_map = registry.cli_command_map(manifest)
+        out.append(
+            GeneratedFile(
+                "tools/cli.py",
+                SCRIPTS["cli/cli.py"].replace("{{ cli_command_map }}", cli_map),
+            )
+        )
+        out.append(
+            GeneratedFile(
+                "tools/Makefile",
+                SCRIPTS["cli/Makefile"]
+                .replace("{{ skill_name }}", manifest.skill.name)
+                .replace("{{ cli_targets }}", registry.cli_targets(manifest)),
+            )
+        )
+        out.append(
+            GeneratedFile(
+                "tools/mcp_server.py",
+                SCRIPTS["mcp/mcp_server.py"]
+                .replace("{{ skill_name }}", manifest.skill.name)
+                .replace("{{ mcp_tool_list }}", registry.mcp_tool_list(manifest)),
+            )
+        )
+        return out
 
     # ------------------------------------------------------------------ config
     def _config_yaml(self, manifest: SkillManifest) -> str:
