@@ -224,3 +224,38 @@ export interface CompareResponse {
   }>;
 }
 
+// ---- Marketplace ----
+
+export interface MarketplaceListing {
+  id: string;
+  name: string;
+  title: string;
+  description: string;
+  version: string;
+  author: string;
+  tags: string[];
+  license: string;
+  price_usd: number;
+  free: boolean;
+  rating: number;
+  reviews_count: number;
+  downloads: number;
+}
+
+export interface BridgeToken {
+  id: string;
+  label: string;
+  scopes: string[];
+  created_at: string;
+  last_used_at: string | null;
+  revoked: boolean;
+}
+
+export interface PendingApproval {
+  id: string;
+  skill_name: string;
+  source: string;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+}
+

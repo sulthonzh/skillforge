@@ -50,6 +50,7 @@ function Header() {
           <nav className="flex items-center gap-0.5 text-[13px]">
             <NavLink href="/" label="Build" />
             <NavLink href="/eval" label="Eval" />
+            <NavLink href="/marketplace" label="Marketplace" />
             <NavLink href="/registry" label="Registry" />
             <NavLink href="/settings" label="Settings" />
           </nav>

@@ -41,6 +41,13 @@ def isolated_env(monkeypatch, tmp_path):
     from skillforge_api.services.eval import suites as eval_suites
 
     eval_suites.set_suite_store(eval_suites.EvalSuiteStore(tmp_path / "eval_suites"))
+    # Isolate marketplace singletons (pairing tokens, approvals, stub adapter).
+    from skillforge_api.services.marketplace import approvals, pairing
+    from skillforge_api.services.marketplace.adapters import local_stub
+
+    pairing.set_pairing_manager(pairing.PairingManager(tmp_path / "mp_tokens.json"))
+    approvals.set_approval_manager(approvals.ApprovalManager(tmp_path / "mp_approvals.json"))
+    local_stub.set_adapter(local_stub.LocalStubAdapter(tmp_path / "mp_stub"))
 
     yield
 
@@ -48,3 +55,6 @@ def isolated_env(monkeypatch, tmp_path):
     get_catalog.cache_clear()
     user_config.set_user_config_store(None)
     eval_suites.set_suite_store(None)
+    pairing.set_pairing_manager(None)
+    approvals.set_approval_manager(None)
+    local_stub.set_adapter(None)

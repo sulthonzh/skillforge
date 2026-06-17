@@ -21,7 +21,18 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
-from .routers import chat, eval as eval_router, health, registry, settings as settings_router, skills, templates
+from .routers import (
+    bridge as bridge_router,
+    chat,
+    eval as eval_router,
+    health,
+    marketplace as marketplace_router,
+    registry,
+    settings as settings_router,
+    skills,
+    templates,
+)
+from .settings import get_settings
 
 log = logging.getLogger("skillforge_api")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -64,10 +75,22 @@ def create_app(static_dir: str | Path | None = None) -> FastAPI:
         lifespan=_lifespan,
     )
 
-    # CORS — still useful when running the Next dev server on a separate port.
+    # CORS — explicit allowlist. `allow_origins=["*"]` + `credentials=True` is
+    # an invalid Fetch-spec combo and a CSRF hole (any website could call the
+    # local API). Allow the Next dev server; the marketplace origin is added by
+    # the bridge router's own CORS handling for paired sessions.
+    settings = get_settings()
+    allowed_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        # Bundled mode is same-origin (the API serves the UI), so no CORS needed;
+        # include localhost:8000 for the api-only/dev case where the browser hits :8000 directly.
+        f"http://localhost:{settings.api_port}",
+        f"http://127.0.0.1:{settings.api_port}",
+    ]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -80,6 +103,8 @@ def create_app(static_dir: str | Path | None = None) -> FastAPI:
     app.include_router(registry.router)
     app.include_router(settings_router.router)
     app.include_router(eval_router.router)
+    app.include_router(marketplace_router.router)
+    app.include_router(bridge_router.router)
     app.include_router(templates.router)
 
     # 2) Optionally serve the bundled Web UI from the same origin.

@@ -7,6 +7,7 @@
 // the dev script maps) and requests will use that absolute base.
 
 import type {
+  BridgeToken,
   ChatPlanResponse,
   CompareResponse,
   ConnectionTest,
@@ -17,7 +18,10 @@ import type {
   EvalSuite,
   GenerateFilesResponse,
   InstallResponse,
+  InstalledSkill,
   LocalPaths,
+  MarketplaceListing,
+  PendingApproval,
   ProviderConfigView,
   ProviderKind,
   ProviderPreset,
@@ -153,4 +157,37 @@ export const api = {
     getJson<CompareResponse>(
       `/api/eval/compare?skills=${encodeURIComponent(skills.join(","))}${suite ? `&suite=${encodeURIComponent(suite)}` : ""}`,
     ),
+
+  // ---- marketplace (local UI interface to the adapter) ----
+  marketplaceSearch: (q = "", tags?: string[]) =>
+    getJson<{ results: MarketplaceListing[]; count: number }>(
+      `/api/marketplace/search?q=${encodeURIComponent(q)}${tags?.length ? `&tags=${encodeURIComponent(tags.join(","))}` : ""}`,
+    ),
+  marketplacePublish: (body: {
+    skill_name: string;
+    title?: string;
+    description?: string;
+    tags?: string[];
+    license?: string;
+    price_usd?: number;
+    author?: string;
+  }) => postJson<{ published: boolean; listing: MarketplaceListing }>("/api/marketplace/publish", body),
+  marketplaceInstall: (listing_id: string) =>
+    postJson<{ installed: boolean; pending_approval: string; listing: MarketplaceListing }>(
+      "/api/marketplace/install",
+      { listing_id },
+    ),
+  marketplacePending: () => getJson<{ pending: PendingApproval[] }>("/api/marketplace/pending"),
+  marketplaceApprove: (id: string) =>
+    postJson<{ installed: boolean; path?: string; new_version?: string }>(
+      `/api/marketplace/pending/${id}/approve`,
+      { overwrite: true },
+    ),
+  marketplaceReject: (id: string) =>
+    postJson<{ rejected: boolean }>(`/api/marketplace/pending/${id}/reject`, {}),
+  marketplacePairCode: () =>
+    postJson<{ code: string; ttl_minutes: number }>("/api/marketplace/pair/code", {}),
+  marketplaceTokens: () => getJson<{ tokens: BridgeToken[] }>("/api/marketplace/tokens"),
+  marketplaceRevokeToken: (id: string) =>
+    delJson<{ revoked: boolean }>(`/api/marketplace/tokens/${id}`),
 };

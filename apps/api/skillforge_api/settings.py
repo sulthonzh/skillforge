@@ -55,7 +55,9 @@ class Settings(BaseSettings):
     skills_dir: Path = Field(default_factory=_default_skills_dir)
 
     # ---- Server ----
-    api_host: str = Field(default="0.0.0.0")
+    # Localhost-only by default — closes the LAN-exposure hole. Docker/the
+    # `serve` command override to 0.0.0.0 explicitly when needed.
+    api_host: str = Field(default="127.0.0.1")
     api_port: int = Field(default=8000)
 
     # ---- Database ----
@@ -64,6 +66,14 @@ class Settings(BaseSettings):
     # ---- Eval harness ----
     # Hard cap on (skill × prompt) completions per eval run, to guard spend.
     eval_max_calls: int = Field(default=50)
+
+    # ---- Marketplace bridge ----
+    # Origin of the (future) SkillForge Marketplace website, allowed to call the
+    # local bridge after pairing. Empty = pairing disabled until set. Use the
+    # magic value "stub" to enable the local offline adapter for testing.
+    marketplace_origin: str = Field(default="stub")
+    # Which marketplace adapter to use: "local-stub" (offline) today.
+    marketplace_adapter: str = Field(default="local-stub")
 
     @field_validator("ai_provider", mode="after")
     @classmethod
