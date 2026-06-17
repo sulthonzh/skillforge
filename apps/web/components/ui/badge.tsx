@@ -1,13 +1,15 @@
 import * as React from "react";
 
-type BadgeVariant = "default" | "secondary" | "outline" | "success" | "warning";
+type BadgeVariant = "default" | "secondary" | "outline" | "success" | "warning" | "mono";
 
 const variants: Record<BadgeVariant, string> = {
-  default: "bg-primary text-primary-foreground",
-  secondary: "bg-secondary text-secondary-foreground",
-  outline: "border border-border text-foreground",
-  success: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
-  warning: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+  default: "bg-primary/12 text-primary border border-primary/20",
+  secondary: "bg-secondary text-secondary-foreground border border-border",
+  outline: "border border-border text-muted-foreground",
+  success: "bg-success/12 text-success border border-success/25",
+  warning: "bg-warning/12 text-warning border border-warning/25",
+  // mono-chip: for tool categories, paths, code-like labels.
+  mono: "bg-muted font-mono text-[11px] text-muted-foreground border border-border",
 };
 
 export function Badge({
@@ -17,7 +19,7 @@ export function Badge({
 }: React.HTMLAttributes<HTMLSpanElement> & { variant?: BadgeVariant }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${variants[variant]} ${className}`}
+      className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium leading-none ${variants[variant]} ${className}`}
       {...props}
     />
   );

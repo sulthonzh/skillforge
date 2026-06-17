@@ -1,25 +1,16 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { InstalledSkillList } from "@/components/InstalledSkillList";
 
 export default function RegistryPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Skill Registry</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          All skills installed by SkillForge into <code className="text-xs">~/.skillforge/skills</code>.
+        <h1 className="text-xl font-semibold tracking-tight">Registry</h1>
+        <p className="mt-0.5 text-[13px] text-muted-foreground">
+          All skills installed into <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">~/.skillforge/skills</code>
         </p>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Installed skills</CardTitle>
-          <CardDescription>Remove a skill to delete its files and registry entry.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/* InstalledSkillList is a client component — fetches on mount. */}
-          <InstalledSkillList />
-        </CardContent>
-      </Card>
+      {/* InstalledSkillList fetches on mount */}
+      <InstalledSkillList variant="full" />
     </div>
   );
 }

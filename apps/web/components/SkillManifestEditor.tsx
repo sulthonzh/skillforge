@@ -1,14 +1,12 @@
 "use client";
 
 import * as React from "react";
+import { Plus, Braces, LayoutGrid, ChevronDown } from "lucide-react";
 import { ToolRecommendationCard } from "./ToolRecommendationCard";
 import { Button } from "./ui/button";
 import { Input, Textarea } from "./ui/input";
 import { Badge } from "./ui/badge";
 import type { SkillManifest, Tool } from "@/lib/types";
-
-// Editable summary of a manifest. Tool cards are the primary surface; the raw
-// JSON view is for power users who want to edit fields the cards don't expose.
 
 export function SkillManifestEditor({
   manifest,
@@ -23,7 +21,8 @@ export function SkillManifestEditor({
 
   React.useEffect(() => {
     if (view === "json") setJsonText(JSON.stringify(manifest, null, 2));
-  }, [view, manifest]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
 
   function updateTool(index: number, next: Tool) {
     const tools = manifest.tools.slice();
@@ -40,7 +39,7 @@ export function SkillManifestEditor({
       ...manifest,
       tools: [
         ...manifest.tools,
-        { name: "New Tool", category: "misc", enabled: true, reason: "" },
+        { name: "new-tool", category: "misc", enabled: true, reason: "" },
       ],
     });
   }
@@ -55,59 +54,64 @@ export function SkillManifestEditor({
     }
   }
 
+  const enabledCount = manifest.tools.filter((t) => t.enabled).length;
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted-foreground">Skill name</span>
-          <Input
-            value={manifest.skill.name}
-            onChange={(e) =>
-              onChange({ ...manifest, skill: { ...manifest.skill, name: e.target.value } })
-            }
-            className="h-8 w-56 text-sm"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted-foreground">Domain</span>
-          <Input
-            value={manifest.skill.domain}
-            onChange={(e) =>
-              onChange({ ...manifest, skill: { ...manifest.skill, domain: e.target.value } })
-            }
-            className="h-8 w-44 text-sm"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted-foreground">Version</span>
-          <Input
-            value={manifest.skill.version}
-            onChange={(e) =>
-              onChange({ ...manifest, skill: { ...manifest.skill, version: e.target.value } })
-            }
-            className="h-8 w-24 text-sm"
-          />
-        </label>
-        <div className="ml-auto flex gap-1 rounded-md border border-border p-0.5">
+    <div className="flex flex-col gap-5">
+      {/* View switch */}
+      <div className="flex items-center justify-between">
+        <div className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-muted/40 p-0.5">
           <Button
-            size="sm"
+            size="xs"
             variant={view === "cards" ? "default" : "ghost"}
             onClick={() => setView("cards")}
+            className={view === "cards" ? "" : "text-muted-foreground"}
           >
-            Cards
+            <LayoutGrid className="h-3 w-3" />
+            Editor
           </Button>
           <Button
-            size="sm"
+            size="xs"
             variant={view === "json" ? "default" : "ghost"}
             onClick={() => setView("json")}
+            className={view === "json" ? "" : "text-muted-foreground"}
           >
+            <Braces className="h-3 w-3" />
             JSON
           </Button>
         </div>
       </div>
 
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">Description</span>
+      {/* Skill meta — always shown */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Field label="Skill name">
+          <Input
+            value={manifest.skill.name}
+            onChange={(e) =>
+              onChange({ ...manifest, skill: { ...manifest.skill, name: e.target.value } })
+            }
+            className="font-mono"
+          />
+        </Field>
+        <Field label="Domain">
+          <Input
+            value={manifest.skill.domain}
+            onChange={(e) =>
+              onChange({ ...manifest, skill: { ...manifest.skill, domain: e.target.value } })
+            }
+          />
+        </Field>
+        <Field label="Version">
+          <Input
+            value={manifest.skill.version}
+            onChange={(e) =>
+              onChange({ ...manifest, skill: { ...manifest.skill, version: e.target.value } })
+            }
+            className="font-mono"
+          />
+        </Field>
+      </div>
+      <Field label="Description">
         <Textarea
           value={manifest.skill.description}
           onChange={(e) =>
@@ -115,67 +119,72 @@ export function SkillManifestEditor({
           }
           rows={2}
         />
-      </label>
+      </Field>
 
       {view === "cards" ? (
         <>
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold">
-              Tools <Badge variant="secondary">{manifest.tools.length}</Badge>
-            </h4>
-            <Button size="sm" variant="outline" onClick={addTool}>
-              + Add tool
-            </Button>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {manifest.tools.map((t, i) => (
-              <ToolRecommendationCard
-                key={`${t.name}-${i}`}
-                tool={t}
-                onChange={(next) => updateTool(i, next)}
-                onRemove={() => removeTool(i)}
-              />
-            ))}
+          {/* Tools */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="micro-label">Tools</span>
+                <Badge variant="secondary">
+                  {enabledCount}/{manifest.tools.length}
+                </Badge>
+              </div>
+              <Button size="xs" variant="outline" onClick={addTool}>
+                <Plus className="h-3 w-3" />
+                Add
+              </Button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {manifest.tools.map((t, i) => (
+                <ToolRecommendationCard
+                  key={`${t.name}-${i}`}
+                  tool={t}
+                  onChange={(next) => updateTool(i, next)}
+                  onRemove={() => removeTool(i)}
+                />
+              ))}
+            </div>
           </div>
 
-          <details className="rounded-md border border-border p-3">
-            <summary className="cursor-pointer text-sm font-medium">
-              Workflow, best practices &amp; standards
-            </summary>
-            <div className="mt-3 grid gap-3">
-              <ListEditor
-                label="Workflow steps"
-                items={manifest.workflow}
-                onChange={(workflow) => onChange({ ...manifest, workflow })}
-              />
-              <ListEditor
-                label="Best practices"
-                items={manifest.best_practices}
-                onChange={(best_practices) => onChange({ ...manifest, best_practices })}
-              />
-              <ListEditor
-                label="Output standards"
-                items={manifest.output_standards}
-                onChange={(output_standards) => onChange({ ...manifest, output_standards })}
-              />
-              <ListEditor
-                label="Architecture patterns"
-                items={manifest.architecture.patterns}
-                onChange={(patterns) =>
-                  onChange({ ...manifest, architecture: { patterns } })
-                }
-              />
-            </div>
-          </details>
+          {/* Collapsible detail sections */}
+          <CollapsibleSection
+            title="Workflow"
+            count={manifest.workflow.length}
+            items={manifest.workflow}
+            onChange={(workflow) => onChange({ ...manifest, workflow })}
+          />
+          <CollapsibleSection
+            title="Best practices"
+            count={manifest.best_practices.length}
+            items={manifest.best_practices}
+            onChange={(best_practices) => onChange({ ...manifest, best_practices })}
+          />
+          <CollapsibleSection
+            title="Output standards"
+            count={manifest.output_standards.length}
+            items={manifest.output_standards}
+            onChange={(output_standards) => onChange({ ...manifest, output_standards })}
+          />
+          <CollapsibleSection
+            title="Architecture patterns"
+            count={manifest.architecture.patterns.length}
+            items={manifest.architecture.patterns}
+            onChange={(patterns) =>
+              onChange({ ...manifest, architecture: { patterns } })
+            }
+          />
         </>
       ) : (
         <div className="flex flex-col gap-2">
           <Textarea
             value={jsonText}
             onChange={(e) => setJsonText(e.target.value)}
-            rows={20}
-            className="scroll-thin font-mono text-xs"
+            rows={22}
             spellCheck={false}
+            className="scroll-thin font-mono text-[12px] leading-relaxed"
           />
           <div className="flex items-center gap-2">
             <Button size="sm" onClick={applyJson}>
@@ -189,24 +198,53 @@ export function SkillManifestEditor({
   );
 }
 
-function ListEditor({
-  label,
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="micro-label">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function CollapsibleSection({
+  title,
+  count,
   items,
   onChange,
 }: {
-  label: string;
+  title: string;
+  count: number;
   items: string[];
   onChange: (next: string[]) => void;
 }) {
+  const [open, setOpen] = React.useState(false);
   return (
-    <label className="flex flex-col gap-1 text-xs">
-      <span className="text-muted-foreground">{label}</span>
-      <Textarea
-        value={items.join("\n")}
-        onChange={(e) => onChange(e.target.value.split("\n").filter(Boolean))}
-        rows={Math.min(8, Math.max(2, items.length))}
-        className="text-xs"
-      />
-    </label>
+    <div className="rounded-lg border border-border">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-3 py-2.5 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <span className="micro-label">{title}</span>
+          <Badge variant="outline">{count}</Badge>
+        </div>
+        <ChevronDown
+          className={`h-4 w-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="border-t border-border p-3">
+          <textarea
+            value={items.join("\n")}
+            onChange={(e) => onChange(e.target.value.split("\n"))}
+            rows={Math.min(10, Math.max(3, items.length + 1))}
+            className="scroll-thin w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-[13px] leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            placeholder={`One ${title.toLowerCase().replace(/s$/, "")} per line…`}
+          />
+        </div>
+      )}
+    </div>
   );
 }

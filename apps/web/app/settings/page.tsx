@@ -1,98 +1,105 @@
 "use client";
 
 import * as React from "react";
+import { CheckCircle2, AlertTriangle, ShieldCheck, Cpu, KeyRound } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api, ApiError } from "@/lib/api";
 
-// Settings page reflects runtime backend status (provider/model/health) so users
-// can confirm their config without dropping to a shell. Secrets are never
-// exposed by the API.
-
-interface BackendStatus {
-  status: string;
-  version: string;
-}
-
 export default function SettingsPage() {
-  const [health, setHealth] = React.useState<BackendStatus | null>(null);
+  const [health, setHealth] = React.useState<{ status: string; version: string } | null>(null);
+  const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     api
       .health()
-      .then(setHealth)
-      .catch((e: ApiError) => setError(e.message));
+      .then((h) => setHealth(h))
+      .catch((e: ApiError) => setError(e.message))
+      .finally(() => setLoading(false));
   }, []);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Backend status and configuration. All secrets are read from environment variables on the
+        <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
+        <p className="mt-0.5 text-[13px] text-muted-foreground">
+          Backend status and configuration. Secrets are read from environment variables on the
           server and never sent to the browser.
         </p>
       </div>
 
+      {/* Backend status */}
       <Card>
         <CardHeader>
-          <CardTitle>Backend</CardTitle>
-          <CardDescription>FastAPI service status.</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Cpu className="h-4 w-4 text-muted-foreground" />
+            Backend
+          </CardTitle>
+          <CardDescription>FastAPI service status</CardDescription>
         </CardHeader>
         <CardContent>
-          {error ? (
-            <p className="text-sm text-destructive">
-              Backend unreachable: {error}. Start it with <code>skillforge serve</code> or{" "}
-              <code>uvicorn skillforge_api.main:app</code>.
-            </p>
-          ) : health ? (
-            <div className="flex items-center gap-3">
-              <Badge variant="success">{health.status}</Badge>
-              <span className="text-sm text-muted-foreground">version {health.version}</span>
+          {loading ? (
+            <Skeleton className="h-5 w-32" />
+          ) : error ? (
+            <div className="flex items-center gap-2 text-[13px] text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              Backend unreachable. Start it with{" "}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">skillforge serve</code>.
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Checking…</p>
-          )}
+          ) : health ? (
+            <div className="flex items-center gap-2">
+              <Badge variant="success">
+                <CheckCircle2 className="h-3 w-3" /> {health.status}
+              </Badge>
+              <span className="text-[12px] text-muted-foreground">v{health.version}</span>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
+      {/* AI provider config */}
       <Card>
         <CardHeader>
-          <CardTitle>AI provider</CardTitle>
-          <CardDescription>
-            Configured via <code className="text-xs">SKILLFORGE_AI_PROVIDER</code> on the server.
-          </CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Cpu className="h-4 w-4 text-muted-foreground" />
+            AI provider
+          </CardTitle>
+          <CardDescription>Configured via environment variables on the server</CardDescription>
         </CardHeader>
         <CardContent>
-          <table className="w-full text-sm">
-            <tbody className="divide-y divide-border">
-              <Row k="Providers" v="mock · openai-compatible · ollama-local" />
-              <Row k="OpenAI base URL" v="SKILLFORGE_OPENAI_BASE_URL" />
-              <Row k="Ollama base URL" v="SKILLFORGE_OLLAMA_BASE_URL" />
-              <Row k="Model" v="SKILLFORGE_MODEL" />
-              <Row k="Skills dir" v="SKILLFORGE_SKILLS_DIR (default ~/.skillforge/skills)" />
-            </tbody>
-          </table>
-          <p className="mt-3 text-xs text-muted-foreground">
-            See <code>.env.example</code> in the repo root for the full list. The default{" "}
-            <code>mock</code> provider works fully offline.
+          <div className="divide-y divide-border overflow-hidden rounded-md border border-border">
+            <Row label="Providers" value="mock · openai-compatible · ollama-local" />
+            <Row label="OpenAI base URL" value="SKILLFORGE_OPENAI_BASE_URL" mono />
+            <Row label="Ollama base URL" value="SKILLFORGE_OLLAMA_BASE_URL" mono />
+            <Row label="Model" value="SKILLFORGE_MODEL" mono />
+            <Row label="Skills dir" value="SKILLFORGE_SKILLS_DIR" mono />
+            <Row label="Web UI dir" value="SKILLFORGE_WEB_DIR" mono />
+          </div>
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            See <code className="font-mono">.env.example</code> in the repo root. The default{" "}
+            <code className="font-mono">mock</code> provider works fully offline.
           </p>
         </CardContent>
       </Card>
 
+      {/* Safety */}
       <Card>
         <CardHeader>
-          <CardTitle>Safety</CardTitle>
-          <CardDescription>SkillForge is safe by default.</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+            Safety
+          </CardTitle>
+          <CardDescription>SkillForge is safe by default</CardDescription>
         </CardHeader>
         <CardContent>
-          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-            <li>Never auto-runs generated scripts.</li>
-            <li>Never installs without an explicit click or <code>--yes</code>.</li>
-            <li>Never overwrites an installed skill unless <code>overwrite</code> is set.</li>
-            <li>Never sends local files to the AI unless you explicitly provide them.</li>
-            <li>Secrets come only from environment variables.</li>
+          <ul className="space-y-1.5 text-[13px] text-muted-foreground">
+            <SafetyItem>Never auto-runs generated scripts.</SafetyItem>
+            <SafetyItem>Never installs without an explicit action.</SafetyItem>
+            <SafetyItem>Never overwrites a skill unless <code className="font-mono">overwrite</code> is set.</SafetyItem>
+            <SafetyItem>Never sends local files to the AI unless you provide them.</SafetyItem>
+            <SafetyItem>Secrets come only from environment variables.</SafetyItem>
           </ul>
         </CardContent>
       </Card>
@@ -100,11 +107,22 @@ export default function SettingsPage() {
   );
 }
 
-function Row({ k, v }: { k: string; v: string }) {
+function Row({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <tr>
-      <td className="py-2 pr-4 font-medium">{k}</td>
-      <td className="py-2 text-muted-foreground">{v}</td>
-    </tr>
+    <div className="flex items-center justify-between gap-3 px-3 py-2">
+      <span className="text-[12px] font-medium">{label}</span>
+      <span className={`truncate text-[12px] text-muted-foreground ${mono ? "font-mono" : ""}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function SafetyItem({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2">
+      <KeyRound className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
+      <span>{children}</span>
+    </li>
   );
 }

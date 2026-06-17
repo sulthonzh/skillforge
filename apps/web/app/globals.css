@@ -2,46 +2,67 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * SkillForge design system — dark-first, Linear/Vercel-inspired.
+ *
+ * Tokens are HSL channels bound to CSS variables so Tailwind can compose them
+ * (e.g. bg-muted/50). The dark palette is the canonical look; light mode is a
+ * tuned mirror, not an afterthought.
+ */
+
 @layer base {
   :root {
+    /* Light (tuned mirror — readable but the dark theme is canonical). */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 240 10% 8%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --card-foreground: 240 10% 8%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 250 84% 64%;
+    --primary: 250 84% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 10% 12%;
+    --accent: 250 84% 96%;
+    --accent-foreground: 250 60% 30%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 60% 40%;
+    --warning: 38 92% 50%;
+    /* surfaces layered by depth */
+    --surface-1: 0 0% 100%;
+    --surface-2: 240 5% 98%;
+    --surface-3: 240 6% 94%;
+    --radius: 0.625rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    /* Canonical dark theme — near-black neutrals + indigo/violet accent. */
+    --background: 240 10% 4%;        /* #09090b-ish */
+    --foreground: 240 5% 96%;
+    --card: 240 9% 6%;               /* one step up from bg */
+    --card-foreground: 240 5% 96%;
+    --muted: 240 6% 12%;
+    --muted-foreground: 240 5% 56%;
+    --border: 240 6% 16%;
+    --input: 240 6% 18%;
+    --ring: 250 84% 66%;
+    --primary: 250 84% 66%;          /* indigo/violet */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 6% 12%;
+    --secondary-foreground: 240 5% 90%;
+    --accent: 250 60% 20%;           /* accent surface, not bright */
+    --accent-foreground: 250 80% 88%;
+    --destructive: 0 72% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 56% 52%;
+    --warning: 38 92% 56%;
+    --surface-1: 240 9% 6%;
+    --surface-2: 240 8% 9%;
+    --surface-3: 240 7% 13%;
   }
 }
 
@@ -49,22 +70,72 @@
   * {
     border-color: hsl(var(--border));
   }
+  html {
+    color-scheme: dark;
+  }
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1, "cv11" 1;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* Monospace defaults to a real coding font when present. */
+  code, pre, kbd, .font-mono {
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code",
+      Menlo, Consolas, monospace;
+    font-feature-settings: "calt" 1;
+  }
+  ::selection {
+    background: hsl(var(--primary) / 0.25);
   }
 }
 
-/* Thin, unobtrusive scrollbars for the preview panes. */
-.scroll-thin::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+@layer components {
+  /* Uppercase micro-label — a Linear signature. */
+  .micro-label {
+    @apply text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground;
+  }
+  /* Layered surface helpers (depth without shadows). */
+  .surface-1 { background-color: hsl(var(--surface-1)); }
+  .surface-2 { background-color: hsl(var(--surface-2)); }
+  .surface-3 { background-color: hsl(var(--surface-3)); }
+  /* Focusable card that brightens on hover. */
+  .interactive-card {
+    @apply rounded-lg border border-border bg-card transition-colors duration-150;
+  }
+  .interactive-card:hover {
+    border-color: hsl(var(--border) / 1.4);
+    background-color: hsl(var(--surface-2));
+  }
 }
-.scroll-thin::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.3);
-  border-radius: 4px;
+
+/* Skeleton shimmer. */
+@keyframes sf-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
-.scroll-thin::-webkit-scrollbar-track {
-  background: transparent;
+.sf-skeleton {
+  background-image: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--muted) / 0.5) 50%,
+    hsl(var(--muted)) 100%
+  );
+  background-size: 200% 100%;
+  animation: sf-shimmer 1.4s ease-in-out infinite;
 }
+
+/* Toast slide/fade. */
+@keyframes sf-toast-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.sf-toast-in { animation: sf-toast-in 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* Thin scrollbars. */
+.scroll-thin { scrollbar-width: thin; scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent; }
+.scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll-thin::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.25); border-radius: 4px; }
+.scroll-thin::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.4); }
+.scroll-thin::-webkit-scrollbar-track { background: transparent; }
