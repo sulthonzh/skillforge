@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     # ---- Database ----
     db_path: Path = Field(default=Path("skillforge.db"))
 
+    # ---- Eval harness ----
+    # Hard cap on (skill × prompt) completions per eval run, to guard spend.
+    eval_max_calls: int = Field(default=50)
+
     @field_validator("ai_provider", mode="after")
     @classmethod
     def _normalize_provider(cls, v: str) -> str:

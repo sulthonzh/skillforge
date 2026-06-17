@@ -49,6 +49,7 @@ function Header() {
         <div className="flex items-center gap-3">
           <nav className="flex items-center gap-0.5 text-[13px]">
             <NavLink href="/" label="Build" />
+            <NavLink href="/eval" label="Eval" />
             <NavLink href="/registry" label="Registry" />
             <NavLink href="/settings" label="Settings" />
           </nav>

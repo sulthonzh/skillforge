@@ -35,6 +35,51 @@ class InstalledSkillRecord(SQLModel, table=True):
     installed_at: datetime = Field(default_factory=_utcnow)
 
 
+class EvalSuiteRecord(SQLModel, table=True):
+    """A named, editable set of test prompts (also mirrored to JSON on disk)."""
+
+    __tablename__ = "eval_suites"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True, unique=True)
+    description: str = Field(default="")
+    # JSON-encoded list of prompt strings.
+    prompts_json: str = Field(default="[]")
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
+class EvalRunRecord(SQLModel, table=True):
+    """One batch eval run of a skill against a suite."""
+
+    __tablename__ = "eval_runs"
+
+    id: int | None = Field(default=None, primary_key=True)
+    suite_id: int | None = Field(default=None, index=True, foreign_key="eval_suites.id")
+    suite_name: str = Field(default="", index=True)
+    skill_name: str = Field(index=True)
+    skill_version: str = Field(default="")
+    provider: str = Field(default="")
+    model: str = Field(default="")
+    aggregate_score: float | None = Field(default=None)
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
+class EvalResultRecord(SQLModel, table=True):
+    """One (run, prompt) scored result."""
+
+    __tablename__ = "eval_results"
+
+    id: int | None = Field(default=None, primary_key=True)
+    run_id: int = Field(index=True, foreign_key="eval_runs.id")
+    prompt: str = Field(default="")
+    response: str = Field(default="")
+    score: float | None = Field(default=None)
+    reasoning: str = Field(default="")
+    status: str = Field(default="ok")  # ok | error | skipped
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
+
 _engine = None
 
 

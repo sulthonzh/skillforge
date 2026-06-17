@@ -164,3 +164,63 @@ export interface LocalPaths {
   db_path: string;
 }
 
+// ---- Eval harness ----
+
+export interface EvalSuite {
+  id?: number;
+  name: string;
+  description: string;
+  prompts: string[];
+  created_at?: string;
+}
+
+export interface EvalResult {
+  id?: number;
+  prompt: string;
+  response: string;
+  score: number | null;
+  reasoning: string;
+  status: "ok" | "error" | "skipped";
+}
+
+export interface EvalRunSummary {
+  run_id: number;
+  skill_name: string;
+  suite_name: string;
+  aggregate_score: number | null;
+  results: EvalResult[];
+}
+
+export interface EvalRunListItem {
+  id: number;
+  skill_name: string;
+  skill_version: string;
+  suite_name: string;
+  provider: string;
+  model: string;
+  aggregate_score: number | null;
+  created_at: string;
+}
+
+export interface EvalRunDetail extends EvalRunListItem {
+  results: EvalResult[];
+}
+
+export interface CompareRow {
+  prompt: string;
+  by_skill: Record<string, EvalResult>;
+  winner: string | null;
+  top_score: number;
+}
+
+export interface CompareResponse {
+  skills: string[];
+  matrix: CompareRow[];
+  summary: Record<string, {
+    aggregate_score: number | null;
+    suite_name: string;
+    run_id: number;
+    created_at: string;
+  }>;
+}
+

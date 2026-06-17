@@ -8,8 +8,13 @@
 
 import type {
   ChatPlanResponse,
+  CompareResponse,
   ConnectionTest,
   DomainInfo,
+  EvalRunDetail,
+  EvalRunListItem,
+  EvalRunSummary,
+  EvalSuite,
   GenerateFilesResponse,
   InstallResponse,
   LocalPaths,
@@ -121,4 +126,31 @@ export const api = {
 
   // ---- local paths (so the UI shows the real configured dir) ----
   getPaths: () => getJson<LocalPaths>("/api/settings/paths"),
+
+  // ---- eval harness ----
+  listSuites: () => getJson<{ suites: EvalSuite[] }>("/api/eval/suites"),
+  upsertSuite: (name: string, description: string, prompts: string[]) =>
+    postJson<{ suite: EvalSuite }>("/api/eval/suites", { name, description, prompts }),
+  deleteSuite: (name: string) =>
+    delJson<{ removed: boolean; name: string }>(`/api/eval/suites/${encodeURIComponent(name)}`),
+
+  runEval: (skill_name: string, suite_name?: string, extra_prompts?: string[], use_skill_examples = true) =>
+    postJson<EvalRunSummary>("/api/eval/run", { skill_name, suite_name, extra_prompts, use_skill_examples }),
+
+  listRuns: (skill?: string, suite?: string) =>
+    getJson<{ runs: EvalRunListItem[] }>(
+      `/api/eval/runs${skill ? `?skill=${encodeURIComponent(skill)}` : ""}${suite ? `${skill ? "&" : "?"}suite=${encodeURIComponent(suite)}` : ""}`,
+    ),
+  getRun: (id: number) => getJson<EvalRunDetail>(`/api/eval/runs/${id}`),
+  deleteRun: (id: number) => delJson<{ removed: boolean }>(`/api/eval/runs/${id}`),
+  overrideResult: (run_id: number, result_id: number, score: number, reasoning: string) =>
+    postJson<{ id: number; score: number; reasoning: string; aggregate_score: number | null }>(
+      `/api/eval/runs/${run_id}/results/${result_id}`,
+      { score, reasoning },
+    ),
+
+  compare: (skills: string[], suite?: string) =>
+    getJson<CompareResponse>(
+      `/api/eval/compare?skills=${encodeURIComponent(skills.join(","))}${suite ? `&suite=${encodeURIComponent(suite)}` : ""}`,
+    ),
 };

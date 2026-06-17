@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
-from .routers import chat, health, registry, settings as settings_router, skills, templates
+from .routers import chat, eval as eval_router, health, registry, settings as settings_router, skills, templates
 
 log = logging.getLogger("skillforge_api")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -31,8 +31,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 async def _lifespan(app: FastAPI):
     """Startup/shutdown hooks.
 
-    Bootstraps the generated skill-creator skill on first run. Wrapped so it
-    never breaks startup if something goes wrong.
+    Bootstraps the generated skill-creator skill + the default eval suite on
+    first run. Wrapped so a failure never breaks startup.
     """
     try:
         from .services.bootstrap import bootstrap_skill_creator
@@ -40,6 +40,12 @@ async def _lifespan(app: FastAPI):
         bootstrap_skill_creator()
     except Exception as exc:  # pragma: no cover - never break startup
         log.warning("skill-creator bootstrap skipped: %s", exc)
+    try:
+        from .services.eval.suites import get_suite_store
+
+        get_suite_store().seed_default()
+    except Exception as exc:  # pragma: no cover - never break startup
+        log.warning("eval suite seed skipped: %s", exc)
     yield
 
 
@@ -73,6 +79,7 @@ def create_app(static_dir: str | Path | None = None) -> FastAPI:
     app.include_router(skills.router)
     app.include_router(registry.router)
     app.include_router(settings_router.router)
+    app.include_router(eval_router.router)
     app.include_router(templates.router)
 
     # 2) Optionally serve the bundled Web UI from the same origin.

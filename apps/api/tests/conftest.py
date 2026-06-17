@@ -37,9 +37,14 @@ def isolated_env(monkeypatch, tmp_path):
     # Isolate the user provider config to a temp file so tests never touch the
     # real ~/.skillforge/config.json.
     user_config.set_user_config_store(user_config.UserConfigStore(tmp_path / "config.json"))
+    # Isolate the eval suite store to the same tmp area.
+    from skillforge_api.services.eval import suites as eval_suites
+
+    eval_suites.set_suite_store(eval_suites.EvalSuiteStore(tmp_path / "eval_suites"))
 
     yield
 
     reset_engine()
     get_catalog.cache_clear()
     user_config.set_user_config_store(None)
+    eval_suites.set_suite_store(None)
