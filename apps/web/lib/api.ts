@@ -8,11 +8,17 @@
 
 import type {
   ChatPlanResponse,
+  ConnectionTest,
   DomainInfo,
   GenerateFilesResponse,
   InstallResponse,
+  ProviderConfigView,
+  ProviderKind,
+  ProviderUpdate,
   RegistryListResponse,
   SkillManifest,
+  SuggestToolsResponse,
+  Tool,
   ValidateResponse,
 } from "./types";
 
@@ -84,4 +90,17 @@ export const api = {
     delJson<{ removed: boolean; name: string }>(`/api/registry/skills/${encodeURIComponent(name)}`),
 
   domains: () => getJson<{ domains: DomainInfo[] }>("/api/templates/domains"),
+
+  // ---- provider settings (S6) ----
+  listProviders: () => getJson<{ providers: ProviderKind[] }>("/api/settings/providers"),
+  getProvider: () => getJson<ProviderConfigView>("/api/settings/provider"),
+  updateProvider: (update: ProviderUpdate) =>
+    postJson<{ saved: boolean; provider: ProviderConfigView }>("/api/settings/provider", update),
+  testProvider: (body: ProviderUpdate) =>
+    postJson<ConnectionTest>("/api/settings/provider/test", body),
+  listModels: () => getJson<{ provider: string; models: string[] }>("/api/settings/models"),
+
+  // ---- tool suggestions (S7) ----
+  suggestTools: (manifest: SkillManifest, hint: string, category?: string) =>
+    postJson<SuggestToolsResponse>("/api/chat/suggest-tools", { manifest, hint, category }),
 };

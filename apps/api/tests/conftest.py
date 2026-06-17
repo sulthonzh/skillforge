@@ -29,12 +29,17 @@ def isolated_env(monkeypatch, tmp_path):
     from skillforge_api.settings import reload_settings
     from skillforge_api.database import reset_engine
     from skillforge_api.services.tool_catalog import get_catalog
+    from skillforge_api.services import user_config
 
     reload_settings()
     reset_engine()
     get_catalog.cache_clear()
+    # Isolate the user provider config to a temp file so tests never touch the
+    # real ~/.skillforge/config.json.
+    user_config.set_user_config_store(user_config.UserConfigStore(tmp_path / "config.json"))
 
     yield
 
     reset_engine()
     get_catalog.cache_clear()
+    user_config.set_user_config_store(None)

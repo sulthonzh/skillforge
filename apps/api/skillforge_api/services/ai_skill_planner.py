@@ -29,7 +29,7 @@ from ..schemas.manifest import (
     Tool,
 )
 from ..settings import Settings, get_settings
-from .ai_provider import AIProvider, AIProviderError, get_provider
+from .ai_provider import AIProvider, AIProviderError, get_active_provider, get_provider
 from .tool_catalog import ToolCatalog, get_catalog
 
 
@@ -156,9 +156,22 @@ class AISkillPlanner:
         catalog: ToolCatalog | None = None,
         settings: Settings | None = None,
     ) -> None:
-        self._provider = provider or get_provider()
+        # Default to the *active* provider (honors user UI config, not just env).
+        self._provider = provider or get_active_provider()
         self._catalog = catalog or get_catalog()
         self._settings = settings or get_settings()
+        # Stash which provider/model we used for manifest provenance.
+        self._planner_model = self._resolve_planner_model()
+
+    def _resolve_planner_model(self) -> str:
+        """Label the manifest with the model actually used (user config > env)."""
+        try:
+            from .user_config import get_user_config_store
+
+            cfg = get_user_config_store().get_provider()
+            return cfg.model or self._settings.model or self._provider.name
+        except Exception:
+            return self._settings.model or self._provider.name
 
     # ------------------------------------------------------------------ public
     def plan(self, message: str) -> tuple[SkillManifest, str]:
@@ -172,10 +185,10 @@ class AISkillPlanner:
         else:
             manifest, explanation = self._plan_with_llm(message)
 
-        # Always stamp provenance.
+        # Always stamp provenance with the actually-used model.
         manifest.ai = SkillAI(
             generated_by="skillforge",
-            planner_model=self._settings.model or self._provider.name,
+            planner_model=self._planner_model,
             created_at=datetime.now(timezone.utc),
         )
         return manifest, explanation
@@ -371,6 +384,92 @@ class AISkillPlanner:
             "and validation rules. Edit the manifest to add, remove, or disable tools."
         )
         return "\n".join(lines)
+
+    # ------------------------------------------------------------------ suggest
+    def suggest_tools(
+        self,
+        manifest: SkillManifest,
+        hint: str = "",
+        category: str | None = None,
+    ) -> list[Tool]:
+        """Suggest alternative/additional tools for *manifest*.
+
+        Combines catalog heuristics (always available) with an optional LLM call.
+        Returns a ranked list of tools *not already in* the manifest.
+        """
+        existing = {t.name.lower() for t in manifest.tools}
+        # Use the manifest's domain + the hint to find the relevant catalog tools.
+        message_for_match = f"{manifest.skill.domain} {manifest.skill.description} {hint}"
+        domain_key = self._catalog.find_domain(message_for_match) or "backend"
+
+        candidates: list[Tool] = []
+        seen: set[str] = set()
+
+        # 1) Tools mentioned in the hint that aren't already selected.
+        for name, cat in self._catalog.find_tools_in_text(hint):
+            if name.lower() in existing or name.lower() in seen:
+                continue
+            seen.add(name.lower())
+            candidates.append(Tool(name=name, category=cat, enabled=True, reason=_reason_for(name, cat)))
+
+        # 2) Top-of-list catalog tools for the domain (one per category) not present.
+        for cat in self._catalog.categories(domain_key):
+            if category and cat != category:
+                continue
+            for name in self._catalog.tools_for(domain_key, cat):
+                if name.lower() in existing or name.lower() in seen:
+                    continue
+                seen.add(name.lower())
+                candidates.append(Tool(name=name, category=cat, enabled=True, reason=_reason_for(name, cat)))
+                break
+
+        # 3) If an LLM provider is configured, ask it for 2-3 more specific picks.
+        if self._provider.name != "mock" and hint.strip():
+            try:
+                llm_picks = self._llm_suggest(manifest, hint)
+                for pick in llm_picks:
+                    if pick.name.lower() in existing or pick.name.lower() in seen:
+                        continue
+                    seen.add(pick.name.lower())
+                    candidates.append(pick)
+            except AIProviderError:
+                pass  # fall back to catalog-only suggestions
+
+        return candidates[:8]
+
+    def _llm_suggest(self, manifest: SkillManifest, hint: str) -> list[Tool]:
+        """Ask the LLM for 2-3 tool suggestions (used by suggest_tools)."""
+        system = (
+            "You recommend specific engineering tools. Return ONLY a JSON array of "
+            "objects {\"name\": str, \"category\": str, \"reason\": str}. "
+            "Suggest 2-3 tools not already in the user's stack. No prose, no fences."
+        )
+        current = ", ".join(t.name for t in manifest.tools)
+        user_msg = (
+            f"Domain: {manifest.skill.domain}\n"
+            f"Current tools: {current}\n"
+            f"What the user wants to change/add: {hint}\n"
+            "Return 2-3 specific, mature tools as JSON."
+        )
+        raw = self._provider.complete_json(system, user_msg)
+        if isinstance(raw, list):
+            items = raw
+        elif isinstance(raw, dict):
+            items = raw.get("tools") or raw.get("suggestions") or []
+        else:
+            items = []
+        out: list[Tool] = []
+        for item in items:
+            if isinstance(item, dict) and item.get("name"):
+                out.append(
+                    Tool(
+                        name=str(item["name"]).strip(),
+                        category=str(item.get("category", "misc")).strip(),
+                        enabled=True,
+                        reason=str(item.get("reason", "")).strip(),
+                    )
+                )
+        return out
 
 
 # ----------------------------------------------------------------------------

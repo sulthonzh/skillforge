@@ -13,16 +13,34 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
-from .routers import chat, health, registry, skills, templates
+from .routers import chat, health, registry, settings as settings_router, skills, templates
 
 log = logging.getLogger("skillforge_api")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    """Startup/shutdown hooks.
+
+    Bootstraps the generated skill-creator skill on first run. Wrapped so it
+    never breaks startup if something goes wrong.
+    """
+    try:
+        from .services.bootstrap import bootstrap_skill_creator
+
+        bootstrap_skill_creator()
+    except Exception as exc:  # pragma: no cover - never break startup
+        log.warning("skill-creator bootstrap skipped: %s", exc)
+    yield
 
 
 def create_app(static_dir: str | Path | None = None) -> FastAPI:
@@ -37,6 +55,7 @@ def create_app(static_dir: str | Path | None = None) -> FastAPI:
         title="SkillForge API",
         description="Local-first AI-powered engineering skill builder.",
         version=__version__,
+        lifespan=_lifespan,
     )
 
     # CORS — still useful when running the Next dev server on a separate port.
@@ -53,6 +72,7 @@ def create_app(static_dir: str | Path | None = None) -> FastAPI:
     app.include_router(chat.router)
     app.include_router(skills.router)
     app.include_router(registry.router)
+    app.include_router(settings_router.router)
     app.include_router(templates.router)
 
     # 2) Optionally serve the bundled Web UI from the same origin.

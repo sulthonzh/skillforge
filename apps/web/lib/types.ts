@@ -92,3 +92,34 @@ export interface DomainInfo {
   key: string;
   label: string;
 }
+
+// ---- Settings / provider config ----
+
+export type ProviderKind = "mock" | "openai-compatible" | "ollama-local";
+
+export interface ProviderConfigView {
+  provider: ProviderKind;
+  openai_base_url: string;
+  openai_api_key_set: boolean;
+  openai_api_key_preview: string;
+  ollama_base_url: string;
+  model: string;
+}
+
+export interface ProviderUpdate {
+  provider?: ProviderKind;
+  openai_base_url?: string;
+  openai_api_key?: string;
+  ollama_base_url?: string;
+  model?: string;
+}
+
+export interface ConnectionTest {
+  ok: boolean;
+  detail: string;
+}
+
+export interface SuggestToolsResponse {
+  suggestions: Tool[];
+}
+

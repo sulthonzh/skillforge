@@ -1,11 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Braces, LayoutGrid, ChevronDown } from "lucide-react";
+import { Plus, Braces, LayoutGrid, ChevronDown, Wand2, X, ArrowDown, Check, RefreshCw } from "lucide-react";
 import { ToolRecommendationCard } from "./ToolRecommendationCard";
 import { Button } from "./ui/button";
 import { Input, Textarea } from "./ui/input";
 import { Badge } from "./ui/badge";
+import { Skeleton } from "./ui/skeleton";
+import { useToast } from "./ui/toast";
+import { api, ApiError } from "@/lib/api";
 import type { SkillManifest, Tool } from "@/lib/types";
 
 export function SkillManifestEditor({
@@ -42,6 +45,14 @@ export function SkillManifestEditor({
         { name: "new-tool", category: "misc", enabled: true, reason: "" },
       ],
     });
+  }
+  function addSpecificTool(tool: Tool) {
+    onChange({ ...manifest, tools: [...manifest.tools, tool] });
+  }
+  function replaceTool(index: number, tool: Tool) {
+    const tools = manifest.tools.slice();
+    tools[index] = tool;
+    onChange({ ...manifest, tools });
   }
 
   function applyJson() {
@@ -132,10 +143,13 @@ export function SkillManifestEditor({
                   {enabledCount}/{manifest.tools.length}
                 </Badge>
               </div>
-              <Button size="xs" variant="outline" onClick={addTool}>
-                <Plus className="h-3 w-3" />
-                Add
-              </Button>
+              <div className="flex gap-1.5">
+                <SuggestToolsButton manifest={manifest} onAdd={addSpecificTool} onReplace={replaceTool} />
+                <Button size="xs" variant="outline" onClick={addTool}>
+                  <Plus className="h-3 w-3" />
+                  Add
+                </Button>
+              </div>
             </div>
             <div className="flex flex-col gap-1.5">
               {manifest.tools.map((t, i) => (
@@ -246,5 +260,118 @@ function CollapsibleSection({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * SuggestToolsButton — opens a panel of AI-suggested tools for the current
+ * manifest. Each suggestion can be added to the stack. Powered by
+ * POST /api/chat/suggest-tools (catalog heuristics + optional LLM picks).
+ */
+function SuggestToolsButton({
+  manifest,
+  onAdd,
+  onReplace,
+}: {
+  manifest: SkillManifest;
+  onAdd: (tool: Tool) => void;
+  onReplace: (index: number, tool: Tool) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [hint, setHint] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [suggestions, setSuggestions] = React.useState<Tool[]>([]);
+  const { toast } = useToast();
+
+  async function fetchSuggestions() {
+    setLoading(true);
+    try {
+      const r = await api.suggestTools(manifest, hint);
+      setSuggestions(r.suggestions);
+      if (r.suggestions.length === 0) {
+        toast({ variant: "info", title: "No new suggestions", description: "Try a more specific hint." });
+      }
+    } catch (e) {
+      toast({ variant: "error", title: "Suggest failed", description: (e as ApiError).message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function togglePanel() {
+    const next = !open;
+    setOpen(next);
+    if (next && suggestions.length === 0 && !loading) fetchSuggestions();
+  }
+
+  return (
+    <>
+      <Button size="xs" variant="outline" onClick={togglePanel}>
+        <Wand2 className="h-3 w-3" />
+        Suggest
+      </Button>
+      {open && (
+        <div className="mb-2 rounded-lg border border-primary/30 bg-accent/30 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="micro-label flex items-center gap-1.5">
+              <Wand2 className="h-3 w-3" /> AI tool suggestions
+            </span>
+            <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="mb-2 flex gap-2">
+            <Input
+              value={hint}
+              onChange={(e) => setHint(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && fetchSuggestions()}
+              placeholder="e.g. swap the database for something with vector search"
+              className="h-8 text-[12px]"
+            />
+            <Button size="xs" onClick={fetchSuggestions} loading={loading} disabled={loading}>
+              {!loading && <RefreshCw className="h-3 w-3" />}
+              Reload
+            </Button>
+          </div>
+          {loading ? (
+            <div className="space-y-1.5">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+          ) : suggestions.length === 0 ? (
+            <p className="py-2 text-[12px] text-muted-foreground">No suggestions yet — refine the hint and reload.</p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {suggestions.map((s, i) => {
+                const already = manifest.tools.some((t) => t.name.toLowerCase() === s.name.toLowerCase());
+                return (
+                  <li key={`${s.name}-${i}`} className="flex items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate font-mono text-[12px] font-medium">{s.name}</span>
+                        <Badge variant="mono">{s.category}</Badge>
+                      </div>
+                      {s.reason && <p className="truncate text-[11px] text-muted-foreground" title={s.reason}>{s.reason}</p>}
+                    </div>
+                    <Button
+                      size="xs"
+                      variant={already ? "ghost" : "outline"}
+                      disabled={already}
+                      onClick={() => {
+                        onAdd(s);
+                        setSuggestions((prev) => prev.filter((_, idx) => idx !== i));
+                      }}
+                    >
+                      {already ? <Check className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                      {already ? "Added" : "Add"}
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+    </>
   );
 }
