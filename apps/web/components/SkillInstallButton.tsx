@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Download, CheckCircle2, AlertCircle, RotateCw } from "lucide-react";
 import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
 import { api, ApiError } from "@/lib/api";
 import { useToast } from "./ui/toast";
 import type { SkillManifest } from "@/lib/types";
@@ -10,7 +11,7 @@ import type { SkillManifest } from "@/lib/types";
 type State =
   | { kind: "idle" }
   | { kind: "working" }
-  | { kind: "installed"; path: string }
+  | { kind: "installed"; path: string; versionInfo?: string }
   | { kind: "conflict"; path: string };
 
 export function SkillInstallButton({ manifest }: { manifest: SkillManifest }) {
@@ -35,11 +36,22 @@ export function SkillInstallButton({ manifest }: { manifest: SkillManifest }) {
         return;
       }
       const res = await api.install(manifest, overwrite);
-      setState({ kind: "installed", path: res.path });
+      const versionInfo =
+        res.version_bump_level && res.previous_version && res.new_version
+          ? `${res.previous_version} → ${res.new_version} · ${res.version_bump_level}`
+          : undefined;
+      setState({ kind: "installed", path: res.path, versionInfo });
+      // When re-installing over an existing skill, surface the auto-bumped version.
+      const bumpInfo =
+        res.version_bump_level && res.previous_version && res.new_version
+          ? `${res.previous_version} → ${res.new_version} (${res.version_bump_level}: ${res.version_bump_reason})`
+          : null;
       toast({
         variant: "success",
-        title: `Installed ${manifest.skill.name}`,
-        description: res.path,
+        title: bumpInfo
+          ? `${manifest.skill.name} updated to v${res.new_version}`
+          : `Installed ${manifest.skill.name}`,
+        description: bumpInfo ? `${bumpInfo}\n${res.path}` : res.path,
       });
     } catch (e) {
       const err = e as ApiError;
@@ -68,10 +80,15 @@ export function SkillInstallButton({ manifest }: { manifest: SkillManifest }) {
   if (state.kind === "installed") {
     return (
       <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2 rounded-md border border-success/30 bg-success/5 px-3 py-2 text-[13px] text-success">
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-success/30 bg-success/5 px-3 py-2 text-[13px] text-success">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
-          <span className="font-medium">Installed</span>
-          <code className="ml-1 truncate font-mono text-[11px] opacity-80" title={state.path}>
+          <span className="font-medium">{state.versionInfo ? "Updated" : "Installed"}</span>
+          {state.versionInfo && (
+            <Badge variant="success" className="font-mono">
+              {state.versionInfo}
+            </Badge>
+          )}
+          <code className="ml-auto truncate font-mono text-[11px] opacity-80" title={state.path}>
             {state.path}
           </code>
         </div>

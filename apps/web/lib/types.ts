@@ -73,6 +73,10 @@ export interface ValidateResponse {
 export interface InstallResponse {
   installed: boolean;
   path: string;
+  previous_version?: string | null;
+  new_version?: string | null;
+  version_bump_level?: string | null;
+  version_bump_reason?: string | null;
 }
 
 export interface InstalledSkill {

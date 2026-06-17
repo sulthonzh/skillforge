@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Package, Trash2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Package, Trash2, CheckCircle2, Pencil } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -104,7 +104,13 @@ function SkillDetailContent() {
                 {skill.installed_at ? new Date(skill.installed_at).toLocaleString() : "—"}
               </dd>
             </dl>
-            <div className="mt-5">
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Link href={`/?edit=${encodeURIComponent(skill.name)}`}>
+                <Button>
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit skill
+                </Button>
+              </Link>
               <Button variant="outline" onClick={remove}>
                 <Trash2 className="h-3.5 w-3.5" />
                 Remove skill

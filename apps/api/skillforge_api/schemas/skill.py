@@ -28,6 +28,10 @@ class InstallRequest(BaseModel):
 class InstallResponse(BaseModel):
     installed: bool
     path: str
+    previous_version: str | None = None
+    new_version: str | None = None
+    version_bump_level: str | None = None
+    version_bump_reason: str | None = None
 
 
 class ValidateRequest(BaseModel):

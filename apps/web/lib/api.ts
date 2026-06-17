@@ -96,6 +96,9 @@ export const api = {
 
   listSkills: () => getJson<RegistryListResponse>("/api/registry/skills"),
 
+  getSkillManifest: (name: string) =>
+    getJson<SkillManifest>(`/api/registry/skills/${encodeURIComponent(name)}/manifest`),
+
   removeSkill: (name: string) =>
     delJson<{ removed: boolean; name: string }>(`/api/registry/skills/${encodeURIComponent(name)}`),
 

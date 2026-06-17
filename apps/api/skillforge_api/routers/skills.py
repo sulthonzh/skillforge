@@ -62,4 +62,11 @@ async def install_skill(req: InstallRequest) -> InstallResponse:
                 f"{outcome.path}. Re-run with overwrite=true to replace it."
             ),
         )
-    return InstallResponse(installed=outcome.installed, path=outcome.path)
+    return InstallResponse(
+        installed=outcome.installed,
+        path=outcome.path,
+        previous_version=outcome.previous_version,
+        new_version=outcome.new_version,
+        version_bump_level=outcome.version_bump.level if outcome.version_bump else None,
+        version_bump_reason=outcome.version_bump.reason if outcome.version_bump else None,
+    )

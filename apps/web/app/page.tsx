@@ -10,21 +10,63 @@ import { InstalledSkillList } from "@/components/InstalledSkillList";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useSkillsDir } from "@/lib/usePaths";
+import { api, ApiError } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
+import { Pencil } from "lucide-react";
 import type { ChatPlanResponse, SkillManifest } from "@/lib/types";
 
 export default function HomePage() {
   const [explanation, setExplanation] = React.useState<string | null>(null);
   const [manifest, setManifest] = React.useState<SkillManifest | null>(null);
   const [mobileTab, setMobileTab] = React.useState("edit");
+  const [editingName, setEditingName] = React.useState<string | null>(null);
+  const { toast } = useToast();
+
+  // Support deep-linking to edit an installed skill: /?edit=<name>
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const editName = params.get("edit");
+    if (!editName) return;
+    api
+      .getSkillManifest(editName)
+      .then((m) => {
+        setManifest(m);
+        setExplanation(
+          `Editing installed skill '${editName}' (v${m.skill.version}). Make changes and re-install to auto-bump the version.`,
+        );
+        setEditingName(editName);
+        setMobileTab("edit");
+      })
+      .catch((e: ApiError) => {
+        toast({
+          variant: "error",
+          title: "Could not load skill",
+          description: `Failed to load '${editName}': ${e.message}`,
+        });
+      });
+  }, [toast]);
 
   function handlePlanned(result: ChatPlanResponse, _message: string) {
     setExplanation(result.explanation);
     setManifest(result.manifest);
+    setEditingName(null);
     setMobileTab("edit");
   }
 
   return (
     <div className="flex flex-col gap-8">
+      {/* Editing banner */}
+      {editingName && (
+        <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-accent/40 px-3.5 py-2.5 text-[13px]">
+          <Pencil className="h-4 w-4 text-primary" />
+          <span>
+            Editing <strong className="font-mono">{editingName}</strong> — changes re-install with an
+            auto-bumped version.
+          </span>
+        </div>
+      )}
+
       {/* ───────── Step 1 — Describe ───────── */}
       <section>
         <StepHeader step={1} title="Describe" subtitle="Tell SkillForge what you need to build" />
