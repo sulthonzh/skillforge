@@ -49,6 +49,15 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   return parseJson<T>(res);
 }
 
+async function putJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(url(path), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return parseJson<T>(res);
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(url(path), { method: "GET" });
   return parseJson<T>(res);
@@ -95,7 +104,7 @@ export const api = {
   listProviders: () => getJson<{ providers: ProviderKind[] }>("/api/settings/providers"),
   getProvider: () => getJson<ProviderConfigView>("/api/settings/provider"),
   updateProvider: (update: ProviderUpdate) =>
-    postJson<{ saved: boolean; provider: ProviderConfigView }>("/api/settings/provider", update),
+    putJson<{ saved: boolean; provider: ProviderConfigView }>("/api/settings/provider", update),
   testProvider: (body: ProviderUpdate) =>
     postJson<ConnectionTest>("/api/settings/provider/test", body),
   listModels: () => getJson<{ provider: string; models: string[] }>("/api/settings/models"),

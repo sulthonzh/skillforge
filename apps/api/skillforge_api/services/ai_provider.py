@@ -246,6 +246,11 @@ def test_provider_connection(cfg) -> dict[str, Any]:
 
     Returns ``{"ok": bool, "detail": str}``. Never raises — callers (the UI)
     want a structured result, not an exception.
+
+    For OpenAI-compatible providers we try ``/models`` first; if that endpoint
+    is missing we fall back to a 1-token ``/chat/completions`` probe (the only
+    endpoint SkillForge actually needs). Auth errors surface a clear message so
+    users know to fix the key rather than the URL.
     """
     from .user_config import ProviderConfig
 
@@ -255,22 +260,52 @@ def test_provider_connection(cfg) -> dict[str, Any]:
     if kind == "openai-compatible":
         if not cfg.openai_api_key:
             return {"ok": False, "detail": "No API key set"}
+        base = cfg.openai_base_url.rstrip("/")
+        headers = {"Authorization": f"Bearer {cfg.openai_api_key}"}
+        # 1) Try /models (cheap, lists models). Many providers implement it.
         try:
-            url = cfg.openai_base_url.rstrip("/") + "/models"
-            resp = httpx.get(
-                url,
-                headers={"Authorization": f"Bearer {cfg.openai_api_key}"},
-                timeout=10.0,
+            resp = httpx.get(f"{base}/models", headers=headers, timeout=10.0)
+            if resp.status_code == 401:
+                return {"ok": False, "detail": "Auth failed (401) — check the API key."}
+            if resp.status_code == 404:
+                # /models not implemented; fall through to chat probe.
+                pass
+            elif 200 <= resp.status_code < 300:
+                return {"ok": True, "detail": f"connected (HTTP {resp.status_code})"}
+            else:
+                # Other non-2xx on /models → try chat before declaring failure.
+                pass
+        except httpx.HTTPError as exc:
+            # Network error on /models → try chat (different path) before failing.
+            pass
+        # 2) Fall back to a minimal chat completion — the real workload path.
+        try:
+            resp = httpx.post(
+                f"{base}/chat/completions",
+                headers={**headers, "Content-Type": "application/json"},
+                json={
+                    "model": cfg.model or "gpt-3.5-turbo",
+                    "messages": [{"role": "user", "content": "ping"}],
+                    "max_tokens": 1,
+                },
+                timeout=15.0,
             )
-            resp.raise_for_status()
-            return {"ok": True, "detail": "connected"}
+            if resp.status_code == 401:
+                return {"ok": False, "detail": "Auth failed (401) — check the API key."}
+            if 200 <= resp.status_code < 300:
+                return {"ok": True, "detail": f"connected (chat HTTP {resp.status_code})"}
+            return {
+                "ok": False,
+                "detail": f"chat endpoint returned HTTP {resp.status_code}: {resp.text[:160]}",
+            }
         except httpx.HTTPError as exc:
             return {"ok": False, "detail": f"connection failed: {exc}"}
     if kind == "ollama-local":
         try:
             resp = httpx.get(cfg.ollama_base_url.rstrip("/") + "/api/tags", timeout=10.0)
-            resp.raise_for_status()
-            return {"ok": True, "detail": "connected"}
+            if 200 <= resp.status_code < 300:
+                return {"ok": True, "detail": f"connected (HTTP {resp.status_code})"}
+            return {"ok": False, "detail": f"/api/tags returned HTTP {resp.status_code}"}
         except httpx.HTTPError as exc:
             return {"ok": False, "detail": f"connection failed: {exc}"}
     return {"ok": False, "detail": f"unknown provider: {kind}"}
