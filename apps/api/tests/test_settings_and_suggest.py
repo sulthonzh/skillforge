@@ -21,7 +21,21 @@ def client():
 def test_list_providers(client):
     r = client.get("/api/settings/providers")
     assert r.status_code == 200
-    assert set(r.json()["providers"]) == {"mock", "openai-compatible", "ollama-local"}
+    assert set(r.json()["providers"]) == {
+        "mock", "openai-compatible", "ollama-local", "anthropic", "gemini", "cohere"
+    }
+
+
+def test_list_presets(client):
+    r = client.get("/api/settings/presets")
+    assert r.status_code == 200
+    presets = r.json()["presets"]
+    assert len(presets) >= 5
+    keys = {p["key"] for p in presets}
+    assert {"openai", "groq", "mistral", "deepseek"} <= keys
+    # Each preset has the fields the UI needs.
+    for p in presets:
+        assert p["base_url"] and p["default_model"] and p["label"]
 
 
 def test_get_provider_returns_masked(client):

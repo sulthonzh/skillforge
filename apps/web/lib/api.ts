@@ -15,6 +15,7 @@ import type {
   LocalPaths,
   ProviderConfigView,
   ProviderKind,
+  ProviderPreset,
   ProviderUpdate,
   RegistryListResponse,
   SkillManifest,
@@ -106,6 +107,7 @@ export const api = {
 
   // ---- provider settings (S6) ----
   listProviders: () => getJson<{ providers: ProviderKind[] }>("/api/settings/providers"),
+  listPresets: () => getJson<{ presets: ProviderPreset[] }>("/api/settings/presets"),
   getProvider: () => getJson<ProviderConfigView>("/api/settings/provider"),
   updateProvider: (update: ProviderUpdate) =>
     putJson<{ saved: boolean; provider: ProviderConfigView }>("/api/settings/provider", update),

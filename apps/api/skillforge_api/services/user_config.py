@@ -29,7 +29,7 @@ from ..settings import Settings, get_settings
 
 # Fields the UI is allowed to read/write. The API key is write-only over the
 # wire (GET returns a masked preview, never the full secret).
-_ALLOWED_PROVIDERS = ("mock", "openai-compatible", "ollama-local", "anthropic")
+_ALLOWED_PROVIDERS = ("mock", "openai-compatible", "ollama-local", "anthropic", "gemini", "cohere")
 
 
 class ProviderConfig(BaseModel):
@@ -41,6 +41,10 @@ class ProviderConfig(BaseModel):
     ollama_base_url: str = Field(default="")
     anthropic_base_url: str = Field(default="")
     anthropic_api_key: str = Field(default="")
+    gemini_base_url: str = Field(default="")
+    gemini_api_key: str = Field(default="")
+    cohere_base_url: str = Field(default="")
+    cohere_api_key: str = Field(default="")
     model: str = Field(default="")
 
     def merged_over(self, settings: Settings) -> "ProviderConfig":
@@ -52,6 +56,10 @@ class ProviderConfig(BaseModel):
             ollama_base_url=self.ollama_base_url or settings.ollama_base_url,
             anthropic_base_url=self.anthropic_base_url or getattr(settings, "anthropic_base_url", "https://api.anthropic.com"),
             anthropic_api_key=self.anthropic_api_key or getattr(settings, "anthropic_api_key", ""),
+            gemini_base_url=self.gemini_base_url or getattr(settings, "gemini_base_url", "https://generativelanguage.googleapis.com"),
+            gemini_api_key=self.gemini_api_key or getattr(settings, "gemini_api_key", ""),
+            cohere_base_url=self.cohere_base_url or getattr(settings, "cohere_base_url", "https://api.cohere.com"),
+            cohere_api_key=self.cohere_api_key or getattr(settings, "cohere_api_key", ""),
             model=self.model or settings.model,
         )
 
@@ -66,6 +74,12 @@ class ProviderConfig(BaseModel):
             "anthropic_base_url": self.anthropic_base_url,
             "anthropic_api_key_set": bool(self.anthropic_api_key),
             "anthropic_api_key_preview": _mask_key(self.anthropic_api_key),
+            "gemini_base_url": self.gemini_base_url,
+            "gemini_api_key_set": bool(self.gemini_api_key),
+            "gemini_api_key_preview": _mask_key(self.gemini_api_key),
+            "cohere_base_url": self.cohere_base_url,
+            "cohere_api_key_set": bool(self.cohere_api_key),
+            "cohere_api_key_preview": _mask_key(self.cohere_api_key),
             "model": self.model,
         }
 
@@ -122,6 +136,10 @@ class UserConfigStore:
             ollama_base_url=str(data.get("ollama_base_url", "")),
             anthropic_base_url=str(data.get("anthropic_base_url", "")),
             anthropic_api_key=str(data.get("anthropic_api_key", "")),
+            gemini_base_url=str(data.get("gemini_base_url", "")),
+            gemini_api_key=str(data.get("gemini_api_key", "")),
+            cohere_base_url=str(data.get("cohere_base_url", "")),
+            cohere_api_key=str(data.get("cohere_api_key", "")),
             model=str(data.get("model", "")),
         )
         return cfg.merged_over(get_settings())
@@ -148,6 +166,8 @@ class UserConfigStore:
             "openai_base_url",
             "ollama_base_url",
             "anthropic_base_url",
+            "gemini_base_url",
+            "cohere_base_url",
             "model",
         ):
             val = update.get(field)
@@ -155,7 +175,7 @@ class UserConfigStore:
                 provider_section[field] = str(val).strip()
 
         # API keys: empty string means "don't touch"; explicit "" handled above.
-        for key_field in ("openai_api_key", "anthropic_api_key"):
+        for key_field in ("openai_api_key", "anthropic_api_key", "gemini_api_key", "cohere_api_key"):
             key = update.get(key_field)
             if key is not None and str(key) != "":
                 provider_section[key_field] = str(key)

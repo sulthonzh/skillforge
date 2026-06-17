@@ -18,13 +18,15 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api";
-import type { ProviderConfigView, ProviderKind, ConnectionTest } from "@/lib/types";
+import type { ProviderConfigView, ProviderKind, ProviderPreset, ConnectionTest } from "@/lib/types";
 
 const PROVIDERS: { value: ProviderKind; label: string; blurb: string }[] = [
   { value: "mock", label: "Mock", blurb: "Offline, deterministic. No key needed." },
-  { value: "openai-compatible", label: "OpenAI-compatible", blurb: "OpenAI, OpenRouter, Together, Groq, vLLM…" },
+  { value: "openai-compatible", label: "OpenAI-compatible", blurb: "OpenAI, OpenRouter, Groq, Together, Mistral, DeepSeek, xAI…" },
   { value: "ollama-local", label: "Ollama (local)", blurb: "Local LLMs via Ollama. No API key." },
   { value: "anthropic", label: "Anthropic", blurb: "Claude models via the native Messages API." },
+  { value: "gemini", label: "Google Gemini", blurb: "Gemini via the Generative Language API." },
+  { value: "cohere", label: "Cohere", blurb: "Command R+ via the Cohere Chat API." },
 ];
 
 export default function SettingsPage() {
@@ -52,25 +54,37 @@ function ProviderCard() {
   const [ollamaBase, setOllamaBase] = React.useState("");
   const [anthropicBase, setAnthropicBase] = React.useState("");
   const [anthropicKey, setAnthropicKey] = React.useState("");
+  const [geminiBase, setGeminiBase] = React.useState("");
+  const [geminiKey, setGeminiKey] = React.useState("");
+  const [cohereBase, setCohereBase] = React.useState("");
+  const [cohereKey, setCohereKey] = React.useState("");
   const [model, setModel] = React.useState("");
   const [models, setModels] = React.useState<string[]>([]);
+  const [presets, setPresets] = React.useState<ProviderPreset[]>([]);
+  const [activePreset, setActivePreset] = React.useState<string>("");
   const [testing, setTesting] = React.useState(false);
   const [testResult, setTestResult] = React.useState<ConnectionTest | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [loadingModels, setLoadingModels] = React.useState(false);
   const { toast } = useToast();
 
-  // Load current config.
+  // Load current config + presets.
   React.useEffect(() => {
-    Promise.all([api.getProvider(), api.listProviders()])
-      .then(([c, p]) => {
+    Promise.all([api.getProvider(), api.listProviders(), api.listPresets()])
+      .then(([c, p, pres]) => {
         setCfg(c);
         setProviders(p.providers);
+        setPresets(pres.presets);
         setProvider(c.provider);
         setOpenaiBase(c.openai_base_url);
         setOllamaBase(c.ollama_base_url);
         setAnthropicBase(c.anthropic_base_url || "https://api.anthropic.com");
+        setGeminiBase(c.gemini_base_url || "https://generativelanguage.googleapis.com");
+        setCohereBase(c.cohere_base_url || "https://api.cohere.com");
         setModel(c.model);
+        // Detect an active preset from the loaded base URL.
+        const match = pres.presets.find((pr) => pr.base_url === c.openai_base_url);
+        if (match) setActivePreset(match.key);
       })
       .catch((e: ApiError) => toast({ variant: "error", title: "Load failed", description: e.message }))
       .finally(() => setLoading(false));
@@ -90,6 +104,17 @@ function ProviderCard() {
     }
   }
 
+  // Apply a hosted-OpenAI-compat preset (fills base URL + model).
+  function applyPreset(presetKey: string) {
+    setActivePreset(presetKey);
+    const preset = presets.find((p) => p.key === presetKey);
+    if (!preset) return;
+    setOpenaiBase(preset.base_url);
+    setModel(preset.default_model);
+    setProvider("openai-compatible");
+    setTestResult(null);
+  }
+
   async function save() {
     setSaving(true);
     setTestResult(null);
@@ -100,13 +125,19 @@ function ProviderCard() {
         openai_base_url: openaiBase,
         ollama_base_url: ollamaBase,
         anthropic_base_url: anthropicBase,
+        gemini_base_url: geminiBase,
+        cohere_base_url: cohereBase,
       };
       if (apiKey) update.openai_api_key = apiKey;
       if (anthropicKey) update.anthropic_api_key = anthropicKey;
+      if (geminiKey) update.gemini_api_key = geminiKey;
+      if (cohereKey) update.cohere_api_key = cohereKey;
       const r = await api.updateProvider(update);
       setCfg(r.provider);
-      setApiKey(""); // clear the field; key is now stored
+      setApiKey(""); // clear the fields; keys are now stored
       setAnthropicKey("");
+      setGeminiKey("");
+      setCohereKey("");
       toast({ variant: "success", title: "Provider saved", description: `${r.provider.provider} · ${r.provider.model}` });
     } catch (e) {
       toast({ variant: "error", title: "Save failed", description: (e as ApiError).message });
@@ -125,9 +156,13 @@ function ProviderCard() {
         openai_base_url: openaiBase,
         ollama_base_url: ollamaBase,
         anthropic_base_url: anthropicBase,
+        gemini_base_url: geminiBase,
+        cohere_base_url: cohereBase,
       };
       if (apiKey) update.openai_api_key = apiKey;
       if (anthropicKey) update.anthropic_api_key = anthropicKey;
+      if (geminiKey) update.gemini_api_key = geminiKey;
+      if (cohereKey) update.cohere_api_key = cohereKey;
       const result = await api.testProvider(update);
       setTestResult(result);
       toast({
@@ -156,6 +191,9 @@ function ProviderCard() {
   const isOpenAI = provider === "openai-compatible";
   const isOllama = provider === "ollama-local";
   const isAnthropic = provider === "anthropic";
+  const isGemini = provider === "gemini";
+  const isCohere = provider === "cohere";
+  const anyKeySet = cfg?.openai_api_key_set || cfg?.anthropic_api_key_set || cfg?.gemini_api_key_set || cfg?.cohere_api_key_set;
 
   return (
     <Card>
@@ -167,7 +205,7 @@ function ProviderCard() {
         <CardDescription>
           Pick a provider and configure connection details. Active:{" "}
           <span className="font-mono text-foreground">{cfg?.provider}</span>
-          {(cfg?.openai_api_key_set || cfg?.anthropic_api_key_set) && (
+          {(cfg?.openai_api_key_set || cfg?.anthropic_api_key_set || cfg?.gemini_api_key_set || cfg?.cohere_api_key_set) && (
             <Badge variant="success" className="ml-2">key set</Badge>
           )}
         </CardDescription>
@@ -203,11 +241,36 @@ function ProviderCard() {
 
         {/* Provider-specific fields */}
         {!isMock && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <>
+            {/* Preset picker for OpenAI-compatible hosted providers */}
+            {isOpenAI && presets.length > 0 && (
+              <div>
+                <span className="micro-label mb-2 block">Quick presets</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {presets.map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => applyPreset(p.key)}
+                      className={`rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                        activePreset === p.key
+                          ? "border-primary bg-accent text-accent-foreground"
+                          : "border-border bg-card text-muted-foreground hover:border-border/80 hover:text-foreground"
+                      }`}
+                      title={`${p.base_url} · ${p.default_model}`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {isOpenAI && (
               <>
                 <Field label="Base URL">
-                  <Input value={openaiBase} onChange={(e) => setOpenaiBase(e.target.value)} className="font-mono text-[12px]" placeholder="https://api.openai.com/v1" />
+                  <Input value={openaiBase} onChange={(e) => { setOpenaiBase(e.target.value); setActivePreset(""); }} className="font-mono text-[12px]" placeholder="https://api.openai.com/v1" />
                 </Field>
                 <Field label={`API key ${cfg?.openai_api_key_set ? "(stored — leave blank to keep)" : ""}`}>
                   <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={cfg?.openai_api_key_set ? "•••• stored ••••" : "sk-..."} className="font-mono text-[12px]" />
@@ -229,6 +292,26 @@ function ProviderCard() {
                 </Field>
               </>
             )}
+            {isGemini && (
+              <>
+                <Field label="Base URL">
+                  <Input value={geminiBase} onChange={(e) => setGeminiBase(e.target.value)} className="font-mono text-[12px]" placeholder="https://generativelanguage.googleapis.com" />
+                </Field>
+                <Field label={`API key ${cfg?.gemini_api_key_set ? "(stored — leave blank to keep)" : ""}`}>
+                  <Input type="password" value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)} placeholder={cfg?.gemini_api_key_set ? "•••• stored ••••" : "AIza..."} className="font-mono text-[12px]" />
+                </Field>
+              </>
+            )}
+            {isCohere && (
+              <>
+                <Field label="Base URL">
+                  <Input value={cohereBase} onChange={(e) => setCohereBase(e.target.value)} className="font-mono text-[12px]" placeholder="https://api.cohere.com" />
+                </Field>
+                <Field label={`API key ${cfg?.cohere_api_key_set ? "(stored — leave blank to keep)" : ""}`}>
+                  <Input type="password" value={cohereKey} onChange={(e) => setCohereKey(e.target.value)} placeholder={cfg?.cohere_api_key_set ? "•••• stored ••••" : "co key"} className="font-mono text-[12px]" />
+                </Field>
+              </>
+            )}
             <Field label="Model">
               <div className="flex gap-2">
                 <Input value={model} onChange={(e) => setModel(e.target.value)} className="font-mono text-[12px]" placeholder="model name" list="sf-models" />
@@ -244,7 +327,8 @@ function ProviderCard() {
                 </datalist>
               )}
             </Field>
-          </div>
+            </div>
+          </>
         )}
 
         {/* Test result */}

@@ -37,6 +37,12 @@ class ProviderUpdate(BaseModel):
     openai_base_url: str | None = None
     openai_api_key: str | None = None
     ollama_base_url: str | None = None
+    anthropic_base_url: str | None = None
+    anthropic_api_key: str | None = None
+    gemini_base_url: str | None = None
+    gemini_api_key: str | None = None
+    cohere_base_url: str | None = None
+    cohere_api_key: str | None = None
     model: str | None = None
 
 
@@ -50,10 +56,85 @@ class TestRequest(BaseModel):
     openai_base_url: str | None = None
     openai_api_key: str | None = None
     ollama_base_url: str | None = None
+    anthropic_base_url: str | None = None
+    anthropic_api_key: str | None = None
+    gemini_base_url: str | None = None
+    gemini_api_key: str | None = None
+    cohere_base_url: str | None = None
+    cohere_api_key: str | None = None
     model: str | None = None
 
 
-_ALLOWED = ["mock", "openai-compatible", "ollama-local"]
+_ALLOWED = ["mock", "openai-compatible", "ollama-local", "anthropic", "gemini", "cohere"]
+
+# Presets for OpenAI-compatible providers — same wire protocol, different base
+# URLs/models. The UI uses these to pre-fill the base URL + a default model when
+# the user picks a hosted provider.
+_OPENAI_COMPAT_PRESETS = [
+    {
+        "key": "openai",
+        "label": "OpenAI",
+        "base_url": "https://api.openai.com/v1",
+        "default_model": "gpt-4.1",
+        "docs_url": "https://platform.openai.com/api-keys",
+    },
+    {
+        "key": "openrouter",
+        "label": "OpenRouter",
+        "base_url": "https://openrouter.ai/api/v1",
+        "default_model": "openai/gpt-4o-mini",
+        "docs_url": "https://openrouter.ai/keys",
+    },
+    {
+        "key": "groq",
+        "label": "Groq",
+        "base_url": "https://api.groq.com/openai/v1",
+        "default_model": "llama-3.3-70b-versatile",
+        "docs_url": "https://console.groq.com/keys",
+    },
+    {
+        "key": "together",
+        "label": "Together AI",
+        "base_url": "https://api.together.xyz/v1",
+        "default_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        "docs_url": "https://api.together.xyz/settings/api-keys",
+    },
+    {
+        "key": "mistral",
+        "label": "Mistral",
+        "base_url": "https://api.mistral.ai/v1",
+        "default_model": "mistral-large-latest",
+        "docs_url": "https://console.mistral.ai/api-keys",
+    },
+    {
+        "key": "deepseek",
+        "label": "DeepSeek",
+        "base_url": "https://api.deepseek.com/v1",
+        "default_model": "deepseek-chat",
+        "docs_url": "https://platform.deepseek.com/api_keys",
+    },
+    {
+        "key": "xai",
+        "label": "xAI (Grok)",
+        "base_url": "https://api.x.ai/v1",
+        "default_model": "grok-3-mini",
+        "docs_url": "https://console.x.ai",
+    },
+    {
+        "key": "fireworks",
+        "label": "Fireworks AI",
+        "base_url": "https://api.fireworks.ai/inference/v1",
+        "default_model": "accounts/fireworks/models/llama-v3p3-70b-instruct",
+        "docs_url": "https://fireworks.ai/account/api-keys",
+    },
+    {
+        "key": "zai",
+        "label": "Z.ai (GLM)",
+        "base_url": "https://api.z.ai/api/coding/paas/v4",
+        "default_model": "glm-4.6",
+        "docs_url": "https://z.ai",
+    },
+]
 
 
 def _to_cfg(payload: ProviderUpdate | TestRequest, fallback: ProviderConfig) -> ProviderConfig:
@@ -64,6 +145,12 @@ def _to_cfg(payload: ProviderUpdate | TestRequest, fallback: ProviderConfig) -> 
         # For "test" we allow inheriting the stored key when the payload omits it.
         openai_api_key=(payload.openai_api_key or fallback.openai_api_key),
         ollama_base_url=(payload.ollama_base_url or fallback.ollama_base_url),
+        anthropic_base_url=(payload.anthropic_base_url or fallback.anthropic_base_url),
+        anthropic_api_key=(payload.anthropic_api_key or fallback.anthropic_api_key),
+        gemini_base_url=(payload.gemini_base_url or fallback.gemini_base_url),
+        gemini_api_key=(payload.gemini_api_key or fallback.gemini_api_key),
+        cohere_base_url=(payload.cohere_base_url or fallback.cohere_base_url),
+        cohere_api_key=(payload.cohere_api_key or fallback.cohere_api_key),
         model=(payload.model or fallback.model),
     )
 
@@ -71,6 +158,17 @@ def _to_cfg(payload: ProviderUpdate | TestRequest, fallback: ProviderConfig) -> 
 @router.get("/providers")
 async def list_providers() -> dict:
     return {"providers": _ALLOWED}
+
+
+@router.get("/presets")
+async def list_presets() -> dict:
+    """Return OpenAI-compatible provider presets (base URL + default model).
+
+    The UI uses these to pre-fill the OpenAI-compatible form when a user picks a
+    hosted provider (OpenAI, OpenRouter, Groq, Together, Mistral, …). They all
+    speak the same wire protocol; only the base URL + default model differ.
+    """
+    return {"presets": _OPENAI_COMPAT_PRESETS}
 
 
 @router.get("/provider")

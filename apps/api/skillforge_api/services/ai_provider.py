@@ -262,6 +262,149 @@ class AnthropicProvider(AIProvider):
 
 
 # ----------------------------------------------------------------------------
+# Google Gemini provider (Generative Language API)
+# ----------------------------------------------------------------------------
+
+
+class GeminiProvider(AIProvider):
+    """Talks to Google's Generative Language API (``generateContent``).
+
+    Gemini differs from OpenAI in three ways that matter:
+      * auth via ``x-goog-api-key`` header (or ``?key=`` query);
+      * requests nest messages as ``contents`` with ``parts``, and the system
+        instruction is a separate ``systemInstruction`` field;
+      * the response nests text under ``candidates[0].content.parts[0].text``.
+
+    Model is part of the URL path, not the body.
+    """
+
+    name = "gemini"
+
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        *,
+        base_url: str | None = None,
+        api_key: str | None = None,
+        model: str | None = None,
+        transport: Any = None,
+    ) -> None:
+        self._settings = settings or get_settings()
+        self._base_url = base_url if base_url is not None else getattr(
+            self._settings, "gemini_base_url", "https://generativelanguage.googleapis.com"
+        )
+        self._api_key = api_key if api_key is not None else getattr(self._settings, "gemini_api_key", "")
+        self._model = model or getattr(self._settings, "model", "") or "gemini-1.5-flash"
+        self._transport = transport
+        if not self._api_key:
+            raise AIProviderError("An API key is required for the gemini provider")
+
+    def complete(self, system: str, user: str, *, json_mode: bool = False) -> str:
+        url = (
+            f"{self._base_url.rstrip('/')}/v1beta/models/{self._model}:generateContent"
+        )
+        user_content = user
+        if json_mode:
+            user_content = user + "\n\nReturn ONLY a JSON object. No prose, no code fences."
+        body: dict[str, Any] = {
+            "systemInstruction": {"parts": {"text": system}} if system else None,
+            "contents": [{"role": "user", "parts": [{"text": user_content}]}],
+            "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"}
+            if json_mode
+            else {"temperature": 0.2},
+        }
+        body = {k: v for k, v in body.items() if v is not None}
+        headers = {"x-goog-api-key": self._api_key, "Content-Type": "application/json"}
+        try:
+            if self._transport is not None:
+                with httpx.Client(transport=self._transport) as client:
+                    resp = client.post(url, json=body, headers=headers, timeout=60.0)
+            else:
+                resp = httpx.post(url, json=body, headers=headers, timeout=60.0)
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise AIProviderError(f"Gemini request failed: {exc}") from exc
+
+        data = resp.json()
+        try:
+            return str(data["candidates"][0]["content"]["parts"][0]["text"])
+        except (KeyError, IndexError, TypeError) as exc:
+            raise AIProviderError(f"Unexpected Gemini response shape: {data!r}") from exc
+
+
+# ----------------------------------------------------------------------------
+# Cohere provider (Command R+ Chat API)
+# ----------------------------------------------------------------------------
+
+
+class CohereProvider(AIProvider):
+    """Talks to Cohere's Chat API (``/v1/chat``).
+
+    Cohere uses a Bearer token but its own message shape: a top-level ``message``
+    string + optional ``preamble`` (system). The response nests text under
+    ``text`` (top level) for non-stream chat.
+    """
+
+    name = "cohere"
+
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        *,
+        base_url: str | None = None,
+        api_key: str | None = None,
+        model: str | None = None,
+        transport: Any = None,
+    ) -> None:
+        self._settings = settings or get_settings()
+        self._base_url = base_url if base_url is not None else getattr(
+            self._settings, "cohere_base_url", "https://api.cohere.com"
+        )
+        self._api_key = api_key if api_key is not None else getattr(self._settings, "cohere_api_key", "")
+        self._model = model or getattr(self._settings, "model", "") or "command-r-plus"
+        self._transport = transport
+        if not self._api_key:
+            raise AIProviderError("An API key is required for the cohere provider")
+
+    def complete(self, system: str, user: str, *, json_mode: bool = False) -> str:
+        url = self._base_url.rstrip("/") + "/v1/chat"
+        message = user
+        if json_mode:
+            message = user + "\n\nReturn ONLY a JSON object. No prose, no code fences."
+        body: dict[str, Any] = {
+            "model": self._model,
+            "message": message,
+            "temperature": 0.2,
+        }
+        if system:
+            body["preamble"] = system
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+        try:
+            if self._transport is not None:
+                with httpx.Client(transport=self._transport) as client:
+                    resp = client.post(url, json=body, headers=headers, timeout=60.0)
+            else:
+                resp = httpx.post(url, json=body, headers=headers, timeout=60.0)
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise AIProviderError(f"Cohere request failed: {exc}") from exc
+
+        data = resp.json()
+        # Non-stream chat returns {"text": "...", ...}.
+        if isinstance(data.get("text"), str):
+            return data["text"]
+        # Some responses nest under message.content[0].text.
+        try:
+            return str(data["message"]["content"][0]["text"])
+        except (KeyError, IndexError, TypeError) as exc:
+            raise AIProviderError(f"Unexpected Cohere response shape: {data!r}") from exc
+
+
+# ----------------------------------------------------------------------------
 # Factory
 # ----------------------------------------------------------------------------
 
@@ -278,6 +421,10 @@ def get_provider(settings: Settings | None = None) -> AIProvider:
         return OllamaProvider(settings)
     if kind == "anthropic":
         return AnthropicProvider(settings)
+    if kind == "gemini":
+        return GeminiProvider(settings)
+    if kind == "cohere":
+        return CohereProvider(settings)
     raise AIProviderError(f"Unknown AI provider: {kind!r}")
 
 
@@ -315,6 +462,22 @@ def get_provider_for_config(cfg) -> AIProvider:
             )
         return AnthropicProvider(
             base_url=cfg.anthropic_base_url, api_key=cfg.anthropic_api_key, model=cfg.model
+        )
+    if kind == "gemini":
+        if not cfg.gemini_api_key:
+            raise AIProviderError(
+                "An API key is required for the gemini provider. Set it in Settings."
+            )
+        return GeminiProvider(
+            base_url=cfg.gemini_base_url, api_key=cfg.gemini_api_key, model=cfg.model
+        )
+    if kind == "cohere":
+        if not cfg.cohere_api_key:
+            raise AIProviderError(
+                "An API key is required for the cohere provider. Set it in Settings."
+            )
+        return CohereProvider(
+            base_url=cfg.cohere_base_url, api_key=cfg.cohere_api_key, model=cfg.model
         )
     raise AIProviderError(f"Unknown AI provider: {kind!r}")
 
@@ -435,6 +598,51 @@ def test_provider_connection(cfg) -> dict[str, Any]:
             }
         except httpx.HTTPError as exc:
             return {"ok": False, "detail": f"connection failed: {exc}"}
+    if kind == "gemini":
+        if not cfg.gemini_api_key:
+            return {"ok": False, "detail": "No API key set"}
+        base = cfg.gemini_base_url.rstrip("/")
+        model = cfg.model or "gemini-1.5-flash"
+        # Probe generateContent with a 1-token request.
+        try:
+            resp = httpx.post(
+                f"{base}/v1beta/models/{model}:generateContent",
+                headers={"x-goog-api-key": cfg.gemini_api_key, "Content-Type": "application/json"},
+                json={
+                    "contents": [{"parts": [{"text": "ping"}]}],
+                    "generationConfig": {"maxOutputTokens": 1},
+                },
+                timeout=15.0,
+            )
+            if resp.status_code in (400, 401, 403):
+                return {"ok": False, "detail": f"Auth/request failed ({resp.status_code}) — check the API key and model."}
+            if 200 <= resp.status_code < 300:
+                return {"ok": True, "detail": f"connected (HTTP {resp.status_code})"}
+            return {"ok": False, "detail": f"generateContent returned HTTP {resp.status_code}: {resp.text[:160]}"}
+        except httpx.HTTPError as exc:
+            return {"ok": False, "detail": f"connection failed: {exc}"}
+    if kind == "cohere":
+        if not cfg.cohere_api_key:
+            return {"ok": False, "detail": "No API key set"}
+        base = cfg.cohere_base_url.rstrip("/")
+        try:
+            resp = httpx.post(
+                f"{base}/v1/chat",
+                headers={
+                    "Authorization": f"Bearer {cfg.cohere_api_key}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
+                json={"model": cfg.model or "command-r-plus", "message": "ping", "max_tokens": 1},
+                timeout=15.0,
+            )
+            if resp.status_code in (401, 403):
+                return {"ok": False, "detail": f"Auth failed ({resp.status_code}) — check the API key."}
+            if 200 <= resp.status_code < 300:
+                return {"ok": True, "detail": f"connected (HTTP {resp.status_code})"}
+            return {"ok": False, "detail": f"/v1/chat returned HTTP {resp.status_code}: {resp.text[:160]}"}
+        except httpx.HTTPError as exc:
+            return {"ok": False, "detail": f"connection failed: {exc}"}
     return {"ok": False, "detail": f"unknown provider: {kind}"}
 
 
@@ -490,6 +698,38 @@ def list_models(cfg) -> list[str]:
             return _ANTHROPIC_FALLBACK_MODELS
         except httpx.HTTPError:
             return _ANTHROPIC_FALLBACK_MODELS
+    if kind == "gemini":
+        if not cfg.gemini_api_key:
+            return _GEMINI_FALLBACK_MODELS
+        try:
+            resp = httpx.get(
+                cfg.gemini_base_url.rstrip("/") + "/v1beta/models",
+                headers={"x-goog-api-key": cfg.gemini_api_key},
+                timeout=10.0,
+            )
+            if 200 <= resp.status_code < 300:
+                data = resp.json()
+                names = [m.get("name", "").replace("models/", "") for m in data.get("models", [])]
+                return [n for n in names if n and "generateContent" in str(data)] or _GEMINI_FALLBACK_MODELS
+            return _GEMINI_FALLBACK_MODELS
+        except httpx.HTTPError:
+            return _GEMINI_FALLBACK_MODELS
+    if kind == "cohere":
+        if not cfg.cohere_api_key:
+            return _COHERE_FALLBACK_MODELS
+        try:
+            resp = httpx.get(
+                cfg.cohere_base_url.rstrip("/") + "/v1/models",
+                headers={"Authorization": f"Bearer {cfg.cohere_api_key}"},
+                timeout=10.0,
+            )
+            if 200 <= resp.status_code < 300:
+                data = resp.json()
+                names = [m.get("name") for m in data.get("models", []) if m.get("name")]
+                return names or _COHERE_FALLBACK_MODELS
+            return _COHERE_FALLBACK_MODELS
+        except httpx.HTTPError:
+            return _COHERE_FALLBACK_MODELS
     return []
 
 
@@ -502,6 +742,26 @@ _ANTHROPIC_FALLBACK_MODELS = [
     "claude-sonnet-4-20250514",
     "claude-opus-4-20250514",
     "claude-3-opus-latest",
+]
+
+_GEMINI_FALLBACK_MODELS = [
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+    "gemini-1.5-flash-8b",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-pro-preview-05-06",
+    "gemini-2.5-flash-preview-05-20",
+]
+
+_COHERE_FALLBACK_MODELS = [
+    "command-r-plus",
+    "command-r",
+    "command-r7b-12-2024",
+    "command-r-08-2024",
+    "command-r-plus-08-2024",
+    "c4ai-aya-expanse-8b",
+    "c4ai-aya-expanse-32b",
 ]
 
 

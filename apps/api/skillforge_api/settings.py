@@ -38,13 +38,17 @@ class Settings(BaseSettings):
     # ---- AI provider ----
     ai_provider: str = Field(
         default="mock",
-        description="One of: mock | openai-compatible | ollama-local | anthropic",
+        description="One of: mock | openai-compatible | ollama-local | anthropic | gemini | cohere",
     )
     openai_base_url: str = Field(default="https://api.openai.com/v1")
     openai_api_key: str = Field(default="")
     ollama_base_url: str = Field(default="http://localhost:11434")
     anthropic_base_url: str = Field(default="https://api.anthropic.com")
     anthropic_api_key: str = Field(default="")
+    gemini_base_url: str = Field(default="https://generativelanguage.googleapis.com")
+    gemini_api_key: str = Field(default="")
+    cohere_base_url: str = Field(default="https://api.cohere.com")
+    cohere_api_key: str = Field(default="")
     model: str = Field(default="gpt-4.1")
 
     # ---- Local install dir ----
@@ -61,7 +65,7 @@ class Settings(BaseSettings):
     @classmethod
     def _normalize_provider(cls, v: str) -> str:
         v = (v or "mock").strip().lower()
-        allowed = {"mock", "openai-compatible", "ollama-local", "anthropic"}
+        allowed = {"mock", "openai-compatible", "ollama-local", "anthropic", "gemini", "cohere"}
         if v not in allowed:
             raise ValueError(
                 f"SKILLFORGE_AI_PROVIDER must be one of {sorted(allowed)}, got {v!r}"

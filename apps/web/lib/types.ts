@@ -99,7 +99,13 @@ export interface DomainInfo {
 
 // ---- Settings / provider config ----
 
-export type ProviderKind = "mock" | "openai-compatible" | "ollama-local" | "anthropic";
+export type ProviderKind =
+  | "mock"
+  | "openai-compatible"
+  | "ollama-local"
+  | "anthropic"
+  | "gemini"
+  | "cohere";
 
 export interface ProviderConfigView {
   provider: ProviderKind;
@@ -110,6 +116,12 @@ export interface ProviderConfigView {
   anthropic_base_url: string;
   anthropic_api_key_set: boolean;
   anthropic_api_key_preview: string;
+  gemini_base_url: string;
+  gemini_api_key_set: boolean;
+  gemini_api_key_preview: string;
+  cohere_base_url: string;
+  cohere_api_key_set: boolean;
+  cohere_api_key_preview: string;
   model: string;
 }
 
@@ -120,7 +132,19 @@ export interface ProviderUpdate {
   ollama_base_url?: string;
   anthropic_base_url?: string;
   anthropic_api_key?: string;
+  gemini_base_url?: string;
+  gemini_api_key?: string;
+  cohere_base_url?: string;
+  cohere_api_key?: string;
   model?: string;
+}
+
+export interface ProviderPreset {
+  key: string;
+  label: string;
+  base_url: string;
+  default_model: string;
+  docs_url: string;
 }
 
 export interface ConnectionTest {
