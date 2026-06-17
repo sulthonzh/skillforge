@@ -9,6 +9,7 @@ import { SkillInstallButton } from "@/components/SkillInstallButton";
 import { InstalledSkillList } from "@/components/InstalledSkillList";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useSkillsDir } from "@/lib/usePaths";
 import type { ChatPlanResponse, SkillManifest } from "@/lib/types";
 
 export default function HomePage() {
@@ -122,6 +123,7 @@ function ManifestColumn({
   explanation: string;
   onChange: (m: SkillManifest) => void;
 }) {
+  const skillsDir = useSkillsDir();
   return (
     <div className="flex flex-col gap-4">
       {/* AI explanation */}
@@ -147,7 +149,8 @@ function ManifestColumn({
           <div className="mb-3">
             <h3 className="text-[14px] font-semibold tracking-tight">Install</h3>
             <p className="text-[12px] text-muted-foreground">
-              Writes the skill into <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">~/.skillforge/skills</code>
+              Writes the skill into{" "}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">{skillsDir}</code>
             </p>
           </div>
           <SkillInstallButton manifest={manifest} />

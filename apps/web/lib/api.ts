@@ -12,6 +12,7 @@ import type {
   DomainInfo,
   GenerateFilesResponse,
   InstallResponse,
+  LocalPaths,
   ProviderConfigView,
   ProviderKind,
   ProviderUpdate,
@@ -112,4 +113,7 @@ export const api = {
   // ---- tool suggestions (S7) ----
   suggestTools: (manifest: SkillManifest, hint: string, category?: string) =>
     postJson<SuggestToolsResponse>("/api/chat/suggest-tools", { manifest, hint, category }),
+
+  // ---- local paths (so the UI shows the real configured dir) ----
+  getPaths: () => getJson<LocalPaths>("/api/settings/paths"),
 };

@@ -266,6 +266,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function SafetyCard() {
+  const [configPath, setConfigPath] = React.useState("~/.skillforge/config.json");
+  React.useEffect(() => {
+    api.getPaths().then((p) => p.config_path && setConfigPath(p.config_path)).catch(() => {});
+  }, []);
   return (
     <Card>
       <CardHeader>
@@ -277,7 +281,7 @@ function SafetyCard() {
       </CardHeader>
       <CardContent>
         <ul className="space-y-1.5 text-[13px] text-muted-foreground">
-          <SafetyItem>The API key is written to <code className="font-mono">~/.skillforge/config.json</code> (chmod 600) and never logged.</SafetyItem>
+          <SafetyItem>The API key is written to <code className="font-mono">{configPath}</code> (chmod 600) and never logged.</SafetyItem>
           <SafetyItem>Provider settings are stored locally; nothing is sent anywhere except the provider you choose.</SafetyItem>
           <SafetyItem>Never auto-runs generated scripts.</SafetyItem>
           <SafetyItem>Never installs without an explicit action.</SafetyItem>

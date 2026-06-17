@@ -123,3 +123,11 @@ export interface SuggestToolsResponse {
   suggestions: Tool[];
 }
 
+// ---- Local paths (so the UI never hardcodes ~/.skillforge) ----
+
+export interface LocalPaths {
+  skills_dir: string;
+  config_path: string;
+  db_path: string;
+}
+

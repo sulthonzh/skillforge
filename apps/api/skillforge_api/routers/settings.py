@@ -15,6 +15,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from ..settings import get_settings
 from ..services.ai_provider import (
     AIProviderError,
     list_models,
@@ -105,3 +106,19 @@ async def get_models() -> dict:
         return {"provider": cfg.provider, "models": list_models(cfg)}
     except AIProviderError as exc:
         return {"provider": cfg.provider, "models": [], "error": str(exc)}
+
+
+@router.get("/paths")
+async def get_paths() -> dict:
+    """Return the actually-configured local paths.
+
+    The UI uses this so it never shows a hardcoded ``~/.skillforge/skills`` that
+    might contradict the configured ``SKILLFORGE_SKILLS_DIR``.
+    """
+    settings = get_settings()
+    store = get_user_config_store()
+    return {
+        "skills_dir": str(settings.skills_dir),
+        "config_path": str(store.path),
+        "db_path": str(settings.db_path),
+    }
