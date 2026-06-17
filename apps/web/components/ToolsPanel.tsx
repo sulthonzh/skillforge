@@ -37,7 +37,7 @@ export function ToolsPanel({ skillName }: { skillName: string }) {
     setOutput(null);
     try {
       const p = await api.previewTool(skillName, tool.script);
-      toast({ variant: p.runnable ? "info" : "warning", title: tool.script, description: p.runnable ? p.command.join(" ") : p.reason });
+      toast({ variant: p.runnable ? "info" : "error", title: tool.script, description: p.runnable ? p.command.join(" ") : p.reason });
     } catch (e) {
       toast({ variant: "error", title: "Preview failed", description: (e as ApiError).message });
     } finally {
