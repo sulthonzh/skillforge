@@ -116,10 +116,10 @@ class OpenAICompatibleProvider(AIProvider):
             "Content-Type": "application/json",
         }
         try:
-            resp = httpx.post(url, json=payload, headers=headers, timeout=60.0)
+            resp = httpx.post(url, json=payload, headers=headers, timeout=self._settings.http_timeout)
             resp.raise_for_status()
         except httpx.HTTPError as exc:
-            raise AIProviderError(f"OpenAI-compatible request failed: {exc}") from exc
+            raise AIProviderError(_format_http_error("OpenAI-compatible", exc)) from exc
 
         data = resp.json()
         try:
@@ -163,10 +163,10 @@ class OllamaProvider(AIProvider):
         }
         payload = {k: v for k, v in payload.items() if v is not None}
         try:
-            resp = httpx.post(url, json=payload, timeout=120.0)
+            resp = httpx.post(url, json=payload, timeout=self._settings.http_timeout)
             resp.raise_for_status()
         except httpx.HTTPError as exc:
-            raise AIProviderError(f"Ollama request failed: {exc}") from exc
+            raise AIProviderError(_format_http_error("Ollama", exc)) from exc
 
         data = resp.json()
         try:
@@ -238,12 +238,12 @@ class AnthropicProvider(AIProvider):
         try:
             if self._transport is not None:
                 with httpx.Client(transport=self._transport) as client:
-                    resp = client.post(url, json=payload, headers=headers, timeout=60.0)
+                    resp = client.post(url, json=payload, headers=headers, timeout=self._settings.http_timeout)
             else:
-                resp = httpx.post(url, json=payload, headers=headers, timeout=60.0)
+                resp = httpx.post(url, json=payload, headers=headers, timeout=self._settings.http_timeout)
             resp.raise_for_status()
         except httpx.HTTPError as exc:
-            raise AIProviderError(f"Anthropic request failed: {exc}") from exc
+            raise AIProviderError(_format_http_error("Anthropic", exc)) from exc
 
         data = resp.json()
         # Response shape: {"content": [{"type": "text", "text": "..."}], ...}
@@ -318,12 +318,12 @@ class GeminiProvider(AIProvider):
         try:
             if self._transport is not None:
                 with httpx.Client(transport=self._transport) as client:
-                    resp = client.post(url, json=body, headers=headers, timeout=60.0)
+                    resp = client.post(url, json=body, headers=headers, timeout=self._settings.http_timeout)
             else:
-                resp = httpx.post(url, json=body, headers=headers, timeout=60.0)
+                resp = httpx.post(url, json=body, headers=headers, timeout=self._settings.http_timeout)
             resp.raise_for_status()
         except httpx.HTTPError as exc:
-            raise AIProviderError(f"Gemini request failed: {exc}") from exc
+            raise AIProviderError(_format_http_error("Gemini", exc)) from exc
 
         data = resp.json()
         try:
@@ -386,12 +386,12 @@ class CohereProvider(AIProvider):
         try:
             if self._transport is not None:
                 with httpx.Client(transport=self._transport) as client:
-                    resp = client.post(url, json=body, headers=headers, timeout=60.0)
+                    resp = client.post(url, json=body, headers=headers, timeout=self._settings.http_timeout)
             else:
-                resp = httpx.post(url, json=body, headers=headers, timeout=60.0)
+                resp = httpx.post(url, json=body, headers=headers, timeout=self._settings.http_timeout)
             resp.raise_for_status()
         except httpx.HTTPError as exc:
-            raise AIProviderError(f"Cohere request failed: {exc}") from exc
+            raise AIProviderError(_format_http_error("Cohere", exc)) from exc
 
         data = resp.json()
         # Non-stream chat returns {"text": "...", ...}.
@@ -771,6 +771,53 @@ _COHERE_FALLBACK_MODELS = [
 
 
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL)
+
+
+def _format_http_error(label: str, exc: httpx.HTTPError) -> str:
+    """Build a user-facing error message from an httpx error.
+
+    Distinguishes timeouts (slow provider) from connection failures (wrong
+    base URL / network) so users get actionable hints, e.g.:
+      "OpenAI-compatible request timed out after 120.0s read — the provider
+       is too slow; increase SKILLFORGE_REQUEST_READ_TIMEOUT."
+    """
+    if isinstance(exc, httpx.TimeoutException):
+        phase = "read"
+        limit = None
+        # httpx's Request property raises RuntimeError when no request is
+        # attached (e.g. when the error was constructed directly in tests), so
+        # guard it rather than assume None.
+        request = None
+        try:
+            request = getattr(exc, "request", None)
+        except RuntimeError:
+            request = None
+        if request is not None and request.extensions.get("timeout") is not None:
+            timeouts = request.extensions["timeout"]
+            # httpx stores timeouts as a dict of {phase: seconds}.
+            for k in ("read", "connect", "write", "pool"):
+                if timeouts.get(k) is not None:
+                    limit = timeouts[k]
+                    phase = k
+                    break
+        limit_str = f"{limit:.1f}s " if limit else ""
+        return (
+            f"{label} request timed out ({phase} {limit_str}exceeded). "
+            f"The provider is slow or unresponsive. You can raise "
+            f"SKILLFORGE_REQUEST_READ_TIMEOUT to allow more time, or reduce "
+            f"the eval prompt/context size."
+        )
+    if isinstance(exc, httpx.ConnectError):
+        return (
+            f"{label} connection failed: {exc}. Check the base URL and that "
+            f"the host is reachable."
+        )
+    # Non-timeout HTTP error (4xx/5xx) — include the status if available.
+    resp = getattr(exc, "response", None)
+    if resp is not None:
+        snippet = (resp.text or "")[:200]
+        return f"{label} request failed (HTTP {resp.status_code}): {snippet}"
+    return f"{label} request failed: {exc}"
 
 
 def _coerce_json(raw: str) -> Any:

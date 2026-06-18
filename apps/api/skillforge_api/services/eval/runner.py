@@ -121,8 +121,14 @@ class EvalRunner:
         if self._provider.name == "mock":
             return self._mock_response(prompt, skill_name)
 
+        # Truncate the skill definition we send as system context. Slow
+        # providers (e.g. Z.ai/GLM) time out when handed the full SKILL.md
+        # (often several KB); the eval needs the skill's identity, workflow,
+        # and output standards — not every scaffold — so we keep the head.
+        system_for_call = self._truncate_context(skill_md)
+
         try:
-            response = self._provider.complete(system=skill_md, user=prompt)
+            response = self._provider.complete(system=system_for_call, user=prompt)
         except AIProviderError as exc:
             return {"prompt": prompt, "response": "", "score": None, "reasoning": str(exc), "status": "error"}
 
@@ -157,6 +163,20 @@ class EvalRunner:
             f"Assistant response to evaluate:\n{response}\n\n"
             "Score this response 0–10 as JSON."
         )
+
+    def _truncate_context(self, skill_md: str) -> str:
+        """Keep the head of SKILL.md under ``eval_context_max_chars``.
+
+        The generate call only needs the skill's identity, workflow, and output
+        standards — not every scaffolded template. Trimming the context cuts
+        tokens and keeps slow providers (Z.ai/GLM, large Ollama models) inside
+        the read timeout.
+        """
+        max_chars = int(getattr(get_settings(), "eval_context_max_chars", 4000))
+        if max_chars <= 0 or len(skill_md) <= max_chars:
+            return skill_md
+        truncated = skill_md[:max_chars].rsplit("\n", 1)[0]  # don't break a line
+        return truncated + "\n\n[... skill definition truncated for evaluation ...]"
 
     def _extract_score(self, judged: Any) -> float | None:
         if isinstance(judged, dict):

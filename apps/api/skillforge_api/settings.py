@@ -63,9 +63,22 @@ class Settings(BaseSettings):
     # ---- Database ----
     db_path: Path = Field(default=Path("skillforge.db"))
 
+    # ---- HTTP timeouts (per provider call) ----
+    # A flat 60s timeout is too short for slow providers (e.g. Z.ai/GLM) when
+    # the eval harness sends the full SKILL.md as context. Split the budget so
+    # a fast connect fails fast, but a slow read can take up to 120s.
+    request_connect_timeout: float = Field(default=10.0)
+    request_read_timeout: float = Field(default=120.0)
+    request_write_timeout: float = Field(default=15.0)
+    request_pool_timeout: float = Field(default=10.0)
+
     # ---- Eval harness ----
     # Hard cap on (skill × prompt) completions per eval run, to guard spend.
     eval_max_calls: int = Field(default=50)
+    # Max chars of SKILL.md to send as system prompt during eval "generate"
+    # calls. The full SKILL.md can be several KB; truncating keeps the prompt
+    # small so slow providers respond within the read timeout.
+    eval_context_max_chars: int = Field(default=4000)
 
     # ---- Marketplace bridge ----
     # Origin of the (future) SkillForge Marketplace website, allowed to call the
@@ -100,6 +113,22 @@ class Settings(BaseSettings):
     @property
     def db_url(self) -> str:
         return f"sqlite:///{self.db_path}"
+
+    @property
+    def http_timeout(self):
+        """A split httpx.Timeout honoring the per-phase budget.
+
+        Returning ``httpx.Timeout`` here (rather than a plain float) keeps
+        callers terse — ``httpx.post(url, ..., timeout=settings.http_timeout)``.
+        """
+        import httpx
+
+        return httpx.Timeout(
+            connect=self.request_connect_timeout,
+            read=self.request_read_timeout,
+            write=self.request_write_timeout,
+            pool=self.request_pool_timeout,
+        )
 
 
 @lru_cache(maxsize=1)
