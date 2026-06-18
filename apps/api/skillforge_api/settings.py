@@ -66,11 +66,22 @@ class Settings(BaseSettings):
     # ---- HTTP timeouts (per provider call) ----
     # A flat 60s timeout is too short for slow providers (e.g. Z.ai/GLM) when
     # the eval harness sends the full SKILL.md as context. Split the budget so
-    # a fast connect fails fast, but a slow read can take up to 120s.
+    # a fast connect fails fast, but a slow read can take up to 180s. The eval
+    # harness issues two sequential calls per prompt (generate + judge), so the
+    # heaviest prompts ("generate a full CRUD API with tests") need the headroom.
     request_connect_timeout: float = Field(default=10.0)
-    request_read_timeout: float = Field(default=120.0)
+    request_read_timeout: float = Field(default=180.0)
     request_write_timeout: float = Field(default=15.0)
     request_pool_timeout: float = Field(default=10.0)
+
+    # ---- Output length ----
+    # Cap on the number of tokens a provider may generate per call. Without a
+    # cap the model writes until it finishes naturally — a "create a full CRUD
+    # API" eval prompt can run to 5000+ tokens at ~40 tokens/s on Z.ai/GLM,
+    # blowing the read timeout. 1024 is enough for an eval answer (the judge
+    # scores quality, not completeness) while keeping every call under budget.
+    # The chat/plan paths can override via the provider's complete() argument.
+    max_output_tokens: int = Field(default=1024)
 
     # ---- Eval harness ----
     # Hard cap on (skill × prompt) completions per eval run, to guard spend.

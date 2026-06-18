@@ -127,8 +127,17 @@ class EvalRunner:
         # and output standards — not every scaffold — so we keep the head.
         system_for_call = self._truncate_context(skill_md)
 
+        # Cap the generate response. The eval judge scores quality, not
+        # completeness, so we don't need a full 5000-token CRUD API — but we
+        # give more headroom than the default (2048 vs 1024) so a code answer
+        # isn't truncated mid-function. This bound is what keeps the heaviest
+        # eval prompts under the read timeout on slow providers (Z.ai/GLM).
+        eval_gen_tokens = max(2048, int(getattr(get_settings(), "max_output_tokens", 1024)))
+
         try:
-            response = self._provider.complete(system=system_for_call, user=prompt)
+            response = self._provider.complete(
+                system=system_for_call, user=prompt, max_tokens=eval_gen_tokens
+            )
         except AIProviderError as exc:
             return {"prompt": prompt, "response": "", "score": None, "reasoning": str(exc), "status": "error"}
 

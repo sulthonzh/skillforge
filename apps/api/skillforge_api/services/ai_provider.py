@@ -36,15 +36,21 @@ class AIProvider(ABC):
     name: str = "abstract"
 
     @abstractmethod
-    def complete(self, system: str, user: str, *, json_mode: bool = False) -> str:
+    def complete(self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None) -> str:
         """Return the assistant's raw text response.
 
         When ``json_mode`` is True, callers expect a JSON-parseable string.
+
+        ``max_tokens`` optionally caps the response length. When None, the
+        provider's configured default (settings.max_output_tokens) applies —
+        bounding every call so a slow provider can't run past the read timeout
+        generating thousands of tokens. Callers that need longer responses
+        (e.g. full code generation) pass an explicit larger value.
         """
 
     # Convenience helper for JSON-returning prompts.
-    def complete_json(self, system: str, user: str) -> Any:
-        raw = self.complete(system, user, json_mode=True)
+    def complete_json(self, system: str, user: str, *, max_tokens: int | None = None) -> Any:
+        raw = self.complete(system, user, json_mode=True, max_tokens=max_tokens)
         return _coerce_json(raw)
 
 
@@ -63,7 +69,7 @@ class MockProvider(AIProvider):
 
     name = "mock"
 
-    def complete(self, system: str, user: str, *, json_mode: bool = False) -> str:
+    def complete(self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None) -> str:
         # The planner builds its own mock manifest directly; this hook exists so
         # any future "pure chat" call still returns something sensible.
         if json_mode:
@@ -98,7 +104,7 @@ class OpenAICompatibleProvider(AIProvider):
                 "An API key is required for the openai-compatible provider"
             )
 
-    def complete(self, system: str, user: str, *, json_mode: bool = False) -> str:
+    def complete(self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None) -> str:
         url = self._base_url.rstrip("/") + "/chat/completions"
         payload: dict[str, Any] = {
             "model": self._model,
@@ -107,6 +113,10 @@ class OpenAICompatibleProvider(AIProvider):
                 {"role": "user", "content": user},
             ],
             "temperature": 0.2,
+            # Bound the response so a slow provider can't generate thousands of
+            # tokens and blow the read timeout. Falls back to the configured
+            # default; callers can override with an explicit larger value.
+            "max_tokens": max_tokens if max_tokens is not None else self._settings.max_output_tokens,
         }
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
@@ -149,7 +159,7 @@ class OllamaProvider(AIProvider):
         self._base_url = base_url if base_url is not None else self._settings.ollama_base_url
         self._model = model or self._settings.model
 
-    def complete(self, system: str, user: str, *, json_mode: bool = False) -> str:
+    def complete(self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None) -> str:
         url = self._base_url.rstrip("/") + "/api/chat"
         payload: dict[str, Any] = {
             "model": self._model,
@@ -159,7 +169,12 @@ class OllamaProvider(AIProvider):
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
-            "options": {"temperature": 0.2},
+            "options": {
+                "temperature": 0.2,
+                # Ollama names this num_predict (not max_tokens). Bound it so a
+                # large local model can't generate indefinitely past the timeout.
+                "num_predict": max_tokens if max_tokens is not None else self._settings.max_output_tokens,
+            },
         }
         payload = {k: v for k, v in payload.items() if v is not None}
         try:
@@ -216,7 +231,7 @@ class AnthropicProvider(AIProvider):
                 "An API key is required for the anthropic provider"
             )
 
-    def complete(self, system: str, user: str, *, json_mode: bool = False) -> str:
+    def complete(self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None) -> str:
         url = self._base_url.rstrip("/") + "/v1/messages"
         # Anthropic has no native JSON mode; append a JSON-only instruction.
         sys_content = system
@@ -225,7 +240,9 @@ class AnthropicProvider(AIProvider):
             user_content = user + "\n\nReturn ONLY a JSON object. No prose, no code fences."
         payload: dict[str, Any] = {
             "model": self._model,
-            "max_tokens": 2048,
+            # max_tokens is REQUIRED by Anthropic (the API rejects the request
+            # without it). Honor an explicit override, else the configured cap.
+            "max_tokens": max_tokens if max_tokens is not None else self._settings.max_output_tokens,
             "temperature": 0.2,
             "system": sys_content,
             "messages": [{"role": "user", "content": user_content}],
@@ -299,19 +316,25 @@ class GeminiProvider(AIProvider):
         if not self._api_key:
             raise AIProviderError("An API key is required for the gemini provider")
 
-    def complete(self, system: str, user: str, *, json_mode: bool = False) -> str:
+    def complete(self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None) -> str:
         url = (
             f"{self._base_url.rstrip('/')}/v1beta/models/{self._model}:generateContent"
         )
         user_content = user
         if json_mode:
             user_content = user + "\n\nReturn ONLY a JSON object. No prose, no code fences."
+        gen_cfg: dict[str, Any] = {
+            "temperature": 0.2,
+            # Gemini names this maxOutputTokens. Bound it for the same timeout
+            # reason as the other providers.
+            "maxOutputTokens": max_tokens if max_tokens is not None else self._settings.max_output_tokens,
+        }
+        if json_mode:
+            gen_cfg["responseMimeType"] = "application/json"
         body: dict[str, Any] = {
             "systemInstruction": {"parts": {"text": system}} if system else None,
             "contents": [{"role": "user", "parts": [{"text": user_content}]}],
-            "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"}
-            if json_mode
-            else {"temperature": 0.2},
+            "generationConfig": gen_cfg,
         }
         body = {k: v for k, v in body.items() if v is not None}
         headers = {"x-goog-api-key": self._api_key, "Content-Type": "application/json"}
@@ -366,7 +389,7 @@ class CohereProvider(AIProvider):
         if not self._api_key:
             raise AIProviderError("An API key is required for the cohere provider")
 
-    def complete(self, system: str, user: str, *, json_mode: bool = False) -> str:
+    def complete(self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None) -> str:
         url = self._base_url.rstrip("/") + "/v1/chat"
         message = user
         if json_mode:
@@ -375,6 +398,8 @@ class CohereProvider(AIProvider):
             "model": self._model,
             "message": message,
             "temperature": 0.2,
+            # Cohere names this max_tokens. Bound it for the same timeout reason.
+            "max_tokens": max_tokens if max_tokens is not None else self._settings.max_output_tokens,
         }
         if system:
             body["preamble"] = system

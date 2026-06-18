@@ -165,3 +165,105 @@ def test_eval_runner_keeps_small_skill_context(monkeypatch):
 
     small = "# Title\nshort skill body\n"
     assert runner._truncate_context(small) == small  # unchanged
+
+
+# ---------------------------------------------------------------------------
+# max_tokens cap (the second half of the eval-timeout fix)
+# ---------------------------------------------------------------------------
+
+
+def _capture_payload(monkeypatch):
+    """Patch httpx.post to record the JSON payload (the request body)."""
+    captured: dict = {}
+
+    def fake_post(url, headers=None, json=None, body=None, timeout=None, **kw):
+        captured["payload"] = json
+        captured["body"] = body
+
+        class _R:
+            status_code = 200
+
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                u = str(url)
+                if "chat/completions" in u:
+                    return {"choices": [{"message": {"content": "ok"}}]}
+                if "/v1/messages" in u:
+                    return {"content": [{"type": "text", "text": "ok"}]}
+                if "generateContent" in u:
+                    return {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]}
+                if "/v1/chat" in u:
+                    return {"text": "ok"}
+                if "/api/chat" in u:  # Ollama
+                    return {"message": {"content": "ok"}}
+                return {}
+
+        return _R()
+
+    monkeypatch.setattr("skillforge_api.services.ai_provider.httpx.post", fake_post)
+    return captured
+
+
+def test_openai_provider_sends_max_tokens_default(monkeypatch):
+    """The OpenAI-compatible provider must cap output (the timeout root cause)."""
+    captured = _capture_payload(monkeypatch)
+    s = reload_settings()
+    s.max_output_tokens = 1024
+    p = OpenAICompatibleProvider(settings=s, base_url="https://x/v1", api_key="k", model="m")
+    p.complete("s", "u")
+    assert captured["payload"]["max_tokens"] == 1024
+
+
+def test_openai_provider_honors_explicit_max_tokens(monkeypatch):
+    captured = _capture_payload(monkeypatch)
+    p = OpenAICompatibleProvider(base_url="https://x/v1", api_key="k", model="m")
+    p.complete("s", "u", max_tokens=4096)
+    assert captured["payload"]["max_tokens"] == 4096
+
+
+def test_anthropic_provider_sends_max_tokens(monkeypatch):
+    captured = _capture_payload(monkeypatch)
+    s = reload_settings()
+    s.max_output_tokens = 800
+    p = AnthropicProvider(settings=s, base_url="https://x", api_key="k", model="m")
+    p.complete("s", "u")
+    assert captured["payload"]["max_tokens"] == 800
+
+
+def test_gemini_provider_sends_max_output_tokens(monkeypatch):
+    """Gemini names it maxOutputTokens."""
+    captured = _capture_payload(monkeypatch)
+    s = reload_settings()
+    s.max_output_tokens = 900
+    p = GeminiProvider(settings=s, base_url="https://x", api_key="k", model="m")
+    p.complete("s", "u")
+    assert captured["payload"]["generationConfig"]["maxOutputTokens"] == 900
+
+
+def test_cohere_provider_sends_max_tokens(monkeypatch):
+    captured = _capture_payload(monkeypatch)
+    s = reload_settings()
+    s.max_output_tokens = 700
+    p = CohereProvider(settings=s, base_url="https://x", api_key="k", model="m")
+    p.complete("s", "u")
+    assert captured["payload"]["max_tokens"] == 700
+
+
+def test_ollama_provider_sends_num_predict(monkeypatch):
+    """Ollama names it num_predict (inside options)."""
+    from skillforge_api.services.ai_provider import OllamaProvider
+
+    captured = _capture_payload(monkeypatch)
+    s = reload_settings()
+    s.max_output_tokens = 600
+    p = OllamaProvider(settings=s, base_url="http://x:11434", model="m")
+    p.complete("s", "u")
+    assert captured["payload"]["options"]["num_predict"] == 600
+
+
+def test_read_timeout_default_is_generous():
+    """The read timeout default must be >= 120s (bumped from 60 -> 180)."""
+    s = reload_settings()
+    assert s.request_read_timeout >= 120.0
