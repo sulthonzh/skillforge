@@ -61,3 +61,6 @@ generated-skills/
 # Ralph-loop local state (the .omo dir holds transient loop files only)
 .omo/ralph-loop.local.md
 .omo/ralph-loop.stuck.md
+skillforge.db
+skillforge.db-shm
+skillforge.db-wal
