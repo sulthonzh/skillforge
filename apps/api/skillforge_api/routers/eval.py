@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlmodel import select
+from starlette.concurrency import run_in_threadpool
 
 from ..database import EvalResultRecord, EvalRunRecord, session_scope
 from ..services.eval.runner import EvalRunner
@@ -116,13 +117,19 @@ def _resolve_prompts(body: RunBody) -> tuple[list[str], str, int | None]:
 
 @router.post("/run")
 async def run_eval(body: RunBody) -> dict:
-    """Run a skill against prompts and score the responses."""
+    """Run a skill against prompts and score the responses.
+
+    Offloaded to a worker thread: runner.run() loops over prompts making up to
+    2×N sequential blocking provider calls (generate + judge), which would
+    freeze the event loop for the entire run. (Tier 0.1.)
+    """
     prompts, suite_name, suite_id = _resolve_prompts(body)
     if not prompts:
         raise HTTPException(400, "No prompts to evaluate. Pick a suite or add custom prompts.")
     try:
         runner = EvalRunner()
-        summary = runner.run(
+        summary = await run_in_threadpool(
+            runner.run,
             skill_name=body.skill_name,
             prompts=prompts,
             suite_name=suite_name,

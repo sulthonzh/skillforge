@@ -14,6 +14,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from ..settings import get_settings
 from ..services.ai_provider import (
@@ -205,18 +206,27 @@ async def update_provider_config(update: ProviderUpdate) -> dict:
 
 @router.post("/provider/test")
 async def test_provider(req: TestRequest) -> dict:
-    """Test a provider config. If the body is empty, test the stored config."""
+    """Test a provider config. If the body is empty, test the stored config.
+
+    Offloaded to a threadpool: test_provider_connection makes blocking HTTP
+    calls (/models + chat probe). (Tier 0.1.)
+    """
     stored = get_user_config_store().get_provider()
     cfg = _to_cfg(req, stored)
-    return test_provider_connection(cfg)
+    return await run_in_threadpool(test_provider_connection, cfg)
 
 
 @router.get("/models")
 async def get_models() -> dict:
-    """List models available to the current provider (best-effort)."""
+    """List models available to the current provider (best-effort).
+
+    Offloaded to a threadpool: list_models makes a blocking /models HTTP call.
+    (Tier 0.1.)
+    """
     cfg = get_user_config_store().get_provider()
     try:
-        return {"provider": cfg.provider, "models": list_models(cfg)}
+        models = await run_in_threadpool(list_models, cfg)
+        return {"provider": cfg.provider, "models": models}
     except AIProviderError as exc:
         return {"provider": cfg.provider, "models": [], "error": str(exc)}
 
