@@ -1,54 +1,127 @@
 # Roadmap
 
-SkillForge v1 is a focused, local-first MVP. This roadmap lists what shipped, what's planned, and what is intentionally out of scope.
+SkillForge is a local-first, open-source AI-powered engineering skill builder.
+Describe an engineering need in plain text, get back a focused, installable
+skill (SKILL.md, README, config.yaml + runnable scaffolds) for AI coding tools.
 
-## Status: v1 MVP ✅
+This roadmap tracks what shipped, what's planned, and what is intentionally out
+of scope. Status as of v1.x.
 
-Shipped:
+---
 
-- [x] Local Web UI (Next.js + TS + Tailwind + shadcn-style components)
+## Status: v1.x — feature-complete MVP ✅
+
+### Core builder
+- [x] Local Web UI (Next.js 14 + TS + Tailwind + shadcn-style components)
 - [x] Local backend API (FastAPI)
-- [x] Chat-based AI skill planning
+- [x] Chat-based AI skill planning (mock planner + LLM planner)
 - [x] AI tool recommendation with reasons
 - [x] Editable manifest (cards + raw JSON)
-- [x] Live file preview (SKILL.md, README.md, config.yaml, prompts/, templates/, …)
+- [x] Live file preview (SKILL.md, README.md, config.yaml, prompts/, templates/, scripts/)
 - [x] Local installation into `~/.skillforge/skills`
 - [x] Installed-skill registry (list, inspect, validate, remove)
 - [x] CLI (`serve`, `plan`, `generate`, `install`, `list`, `validate`, `remove`)
-- [x] Provider-agnostic AI (mock / openai-compatible / ollama-local)
 - [x] Validation (kebab-case names, ≥2 tools, required sections, etc.)
-- [x] Example skills (`backend-fastapi-postgres`, `data-airflow-dbt-bigquery`, `ai-rag-langchain-pgvector`)
-- [x] Unit + API tests (planner, generator, installer, validator, registry, catalog)
+- [x] Example skills (`backend-fastapi-postgresql`, `data-airflow-dbt-bigquery`, `ai-rag-langchain-pgvector`)
+
+### Distribution & operation
+- [x] **One-command run** — `skillforge serve` serves API + Web UI from a single port
+- [x] **Single-binary distribution** — PyInstaller onefile (API + embedded Web UI export, no Python/Node on target). Build guarded against the `jaraco.text` crash and size bloat (22 MB, fails fast on regression).
+- [x] **Unified logging** — one timestamped format across uvicorn access logs, httpx outbound requests, and app code (see `logging_config.py`).
 - [x] Docker Compose stack
-- [x] **One-command run** — `skillforge serve` serves API + Web UI from a single port (no separate Node process)
-- [x] **Single-binary distribution** — `./scripts/build-binary.sh` produces a standalone PyInstaller executable (API + embedded Web UI export, no Python/Node install on the target)
-- [x] OSS docs (architecture, manifest spec, planner, catalog, install, roadmap)
-- [x] **One-command run** — `skillforge serve` serves API + Web UI from a single port (no separate Node process)
-- [x] **Single-binary distribution** — `./scripts/build-binary.sh` produces a standalone PyInstaller executable (API + embedded Web UI export, no Python/Node install on the target)
-- [x] **Live AI provider configuration** — pick provider/model/key from the Settings UI (persisted to `~/.skillforge/config.json`); planner honors it at runtime without restart
-- [x] **Six provider families** — Mock, OpenAI-compatible (+ presets for OpenAI/OpenRouter/Groq/Together/Mistral/DeepSeek/xAI/Fireworks/Z.ai), Ollama, Anthropic (Claude, native Messages API), Google Gemini, Cohere
+- [x] CI: test workflow + cross-platform binary release workflow
+
+### AI providers (6 families)
+- [x] **Six provider families** — Mock, OpenAI-compatible (+ presets for OpenAI/OpenRouter/Groq/Together/Mistral/DeepSeek/xAI/Fireworks/Z.ai), Ollama, Anthropic (native Messages API), Google Gemini (native generateContent), Cohere (native /v1/chat)
+- [x] **Live AI provider configuration** — pick provider/model/key from the Settings UI (persisted to `~/.skillforge/config.json`, chmod 600); planner honors it at runtime without restart
 - [x] **Auto-bootstrapped skill-creator skill** — generated & installed on first run (self-bootstrapping)
 - [x] **AI tool suggestions** — reload/swap tools via the suggest endpoint + UI panel
-- [x] **Skill editing + auto version bump** — re-open installed skills in the builder; reinstall auto-bumps the version (patch/minor/major) based on the diff
-- [x] **Eval &amp; benchmark harness** — run skills vs prompts, LLM-as-judge scoring, persisted runs, side-by-side compare with winner highlighting + manual override
+- [x] **Connection probing** — `/models` + chat-completions fallback so Z.ai (no /models) tests cleanly
+
+### Skill editing & versioning
+- [x] **Skill editing + auto version bump** — re-open installed skills in the builder; reinstall auto-bumps the version (patch/minor/major) based on the diff (textual → patch, tools → minor, identity → major)
+
+### Generated tools inside skills
+- [x] **Runnable tool artifacts** — skills include real, working scripts (FastAPI `dev_server.py`, Alembic `migrate.sh`, pytest `test.sh`, Dockerfile, CI YAML, pyproject.toml, CLI, MCP server, etc.) via `ToolArtifactRegistry`
+- [x] **Safe tool execution** — opt-in executor with allowlist, 30s timeout, dry-run preview, and audit log (no auto-execution)
+
+### Eval & benchmark harness
+- [x] **Eval harness** — run skills vs prompt suites, LLM-as-judge scoring, persisted runs, side-by-side compare with winner highlighting + manual override
+- [x] **Slow-provider resilience** — split httpx timeouts (connect/read/write/pool), SKILL.md context truncation, per-provider `max_tokens` cap, and tunable eval budget so Z.ai/GLM and large Ollama models finish within the read timeout
+
+### Marketplace & sharing
+- [x] **Local marketplace bridge** — secure pairing (6-char CSPRNG code, single-use, 10-min TTL), scoped bridge tokens (SHA-256 hashed, revocable), approval queue, `.skillpkg` tarball format
+- [x] **LocalStubAdapter** — offline reference marketplace implementation (no cloud backend required)
+- [x] **Marketplace UI** — publish, browse, search, install-with-approval, connection panel
+
+### AI tool integration
+- [x] **Symlink deployment** — auto-detect installed AI coding tools (Claude Code, ZCode, Codex, Cursor, etc.) and symlink a skill into each tool's skills directory from a single source
+
+### Security
+- [x] **Local-origin guard** — blocks browser requests from non-local origins (CSRF / DNS-rebinding defense for the token-less local endpoints); same mitigation Jupyter & VS Code use
+- [x] **Pairing rate limiting** — 10 attempts/min per client makes the 6-char code brute-force provably infeasible
+- [x] **Constant-time token validation** — `hmac.compare_digest` on the SHA-256 hash comparison
+- [x] **localhost bind default** (`127.0.0.1`) + explicit CORS allowlist (no wildcard+credentials)
+- [x] **Path-traversal guards** on install/validate/preview
+
+### Polish
 - [x] **Light/dark/system theme** — persisted, no-flash
+- [x] **Real configured paths in UI** — `~/.skillforge/skills` shown live via `GET /api/settings/paths`
 
-## Planned (v1.x)
+### Tests
+- [x] **224 tests passing** across 20 files (planner, generator, installer, validator, registry, catalog, all 6 providers, marketplace pairing/packaging/bridge/approvals, eval, security middleware, rate limiting, timeouts, logging)
 
-- [ ] **Cross-platform binary releases** — CI (GitHub Actions) that builds macOS, Linux, and Windows binaries on tag push and publishes them to GitHub Releases. The single-binary build itself already ships; this is purely release automation.
-- [ ] **Skill template marketplace** — community sharing of skill templates (read-only registry, no cloud backend required).
+---
+
+## Planned (v1.x+)
+
+### Trust & safety (Tier 0 from the deep review — ship before v1.0 tag)
+These are the remaining items from [`docs/improvement-plan.md`](./improvement-plan.md) that can lose data or mislead. Items already addressed (split timeouts, security hardening) are struck.
+
+- [ ] **0.1 Async handlers do blocking I/O on the event loop** — provider `complete()` is synchronous; wrap in `run_in_threadpool` or make providers async so a slow LLM call can't stall concurrent requests.
+- [ ] **0.2 Silent mock fallback misleads users** — if the configured provider fails to initialize, the app silently falls back to the mock planner. Surface a clear warning in the UI instead.
+- [ ] **0.3 Non-atomic install can delete a skill mid-failure** — install writes in place; a failure partway through leaves a half-installed skill. Install to a temp dir + `os.replace`.
+- [ ] **0.4 SQLite missing WAL** — enable `PRAGMA journal_mode=WAL` to avoid `database is locked` under concurrent eval/install. ~~0.5 Security (0.0.0.0 bind + CORS * + path traversal)~~ ✅ fixed.
+
+### Generated skill quality (Tier 1)
+- [ ] **1.1 Stack-specific code scaffolds** — the tool artifacts are real scripts, but example prompts/templates are still generic per-domain. Make the FastAPI scaffold genuinely runnable as a starter.
+- [ ] **1.2 Per-domain best practices & output standards** — eval judges currently use one shared standards list; specialize per domain.
+- [ ] **1.3 Brand-aware name casing** — "FastAPI" not "Fastapi", "PostgreSQL" not "Postgresql".
+- [ ] **1.4 Register `pascal_case` as a Jinja filter** — latent bug; filter is referenced but not registered.
+- [ ] **1.5 Polish the 3 example skills by hand.**
+
+### Eval robustness (Tier 2)
+- [ ] **2.1 Self-grading bias** — the eval judge uses the same provider that generated the response. Let the judge use a different provider/model than the generator.
+- ~~2.2 Split httpx timeouts~~ ✅ fixed. ~~2.3 Per-call timeout + run deadline~~ ✅ fixed.
+- [ ] **2.4 Guard SkillPreview against out-of-order responses** — fast edits can overwrite a slow in-flight response.
+- [ ] **2.5 Eval compare keyed on prompt text** — collision risk when suites share prompt strings; key on `(prompt, index)`.
+
+### UX (Tier 3)
+- [ ] **3.1 Data layer (SWR/React Query) + global error boundary** — replace ad-hoc `useEffect` fetches.
+- [ ] **3.2 Mobile: hover-only actions unreachable on touch.**
+- [ ] **3.3 Accessibility gaps** — keyboard nav, screen-reader labels.
+- [ ] **3.4 Replace `window.location.href` reloads with client nav.**
+
+### Release & community
+- [ ] **Cross-platform binary releases** — CI (GitHub Actions) builds macOS, Linux, Windows binaries on tag push → GitHub Releases. The build itself ships; this is release automation.
 - [ ] **Streaming plan responses** — Server-Sent Events for the chat panel.
 - [ ] **Pluggable output formats** — emit MDX or JSON in addition to markdown.
-- [ ] **Multi-language catalog contributions** — a PR template + CI check for catalog edits.
-- [ ] **Offline LLM model picker** — detect installed Ollama models and offer them in the UI.
-- [ ] **Eval export** — download runs as CSV/JSON (the data is in the API; a UI download button is the gap).
+- [ ] **Multi-language catalog contributions** — PR template + CI check for catalog edits.
+- [ ] **Offline LLM model picker** — detect installed Ollama models, offer them in the UI.
+- [ ] **Eval export** — download runs as CSV/JSON (data is in the API; UI button is the gap).
 - [ ] **Statistical eval** — multiple judge samples + significance for noisier models.
+- [ ] **Web smoke tests (Playwright)** + snapshot tests for generated SKILL.md.
+
+---
 
 ## Considered but not committed (v2+)
 
 - [ ] Team sharing via a shared skills directory (still local, no cloud).
 - [ ] Skill dependency graph (one skill composing another).
 - [ ] A "skill linter" CI action usable in external repos.
+- [ ] Pluggable marketplace adapters beyond LocalStub (e.g. a read-only public registry).
+
+---
 
 ## Out of scope (by design)
 
@@ -56,11 +129,22 @@ These will **not** be built, to keep SkillForge local-first, simple, and safe:
 
 - Cloud sync of generated skills.
 - Multi-user workspaces.
-- Authentication and authorization.
+- Authentication and authorization (the local-origin guard + pairing flow is the extent of access control; this is a local tool).
 - Team permission systems.
 - Remote/hosted deployment as a managed service.
-- Auto-executing generated scripts.
+- **Auto-executing generated scripts** — the tool executor requires explicit `confirm=True` and an allowlist; it will never run code on its own.
 - A complex plugin runtime.
 - Enterprise dashboard / billing.
 
 If any of these matter to you, SkillForge's permissive MIT license and clean service layer make it straightforward to fork.
+
+---
+
+## OSS release checklist
+
+Before tagging v1.0:
+- [ ] `SECURITY.md` — document the threat model (local-first, 127.0.0.1, browser CSRF is the primary threat, mitigated by the origin guard).
+- [ ] `CONTRIBUTING.md` — dev setup, test/build commands, code-review norms.
+- [ ] Tier 0.1–0.4 above (data safety).
+- [ ] License scan of bundled dependencies (PyInstaller bundles third-party code).
+- [ ] Signed releases (cosign / GPG) for the binaries.
