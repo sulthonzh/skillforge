@@ -43,7 +43,7 @@ adheres to [Semantic Versioning](https://semver.org/).
 ### Infrastructure
 - **Unified logging** — one timestamped format across uvicorn, httpx, and app
   code (was three different interleaved formats).
-- **247 tests** passing across 22 test files.
+- **247 tests** passing across 21 test files.
 
 ## [0.1.0] — Initial MVP
 
