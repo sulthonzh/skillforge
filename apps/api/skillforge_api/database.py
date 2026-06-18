@@ -4,17 +4,28 @@ A tiny registry table records every skill that SkillForge installs locally.
 The generator and installer never need the DB — they operate on the
 filesystem — but the registry persists metadata so the Web UI and CLI can
 list, inspect, and remove installed skills quickly.
+
+Concurrency: SQLite is configured for WAL journal mode with a 5s busy_timeout
+on every connection (see ``_set_sqlite_pragmas``). WAL allows concurrent
+readers alongside a single writer, and ``busy_timeout`` makes a blocked writer
+wait instead of immediately raising ``OperationalError: database is locked``.
+This matters because the eval runner opens many short write transactions per
+run on the same event-loop thread as everything else.
 """
 
 from __future__ import annotations
 
+import logging
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Iterator
 
+from sqlalchemy import event
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 from .settings import get_settings
+
+log = logging.getLogger(__name__)
 
 
 def _utcnow() -> datetime:
@@ -95,8 +106,30 @@ def get_engine():
             echo=False,
             connect_args={"check_same_thread": False},
         )
+        # Set connection-level PRAGMAs on every new DBAPI connection. WAL mode
+        # allows concurrent readers + one writer (avoids "database is locked"
+        # under the eval runner's many short transactions); busy_timeout makes
+        # a blocked writer wait 5s instead of failing immediately;
+        # synchronous=NORMAL is safe with WAL and faster than FULL.
+        event.listens_for(_engine, "connect")(_set_sqlite_pragmas)
         SQLModel.metadata.create_all(_engine)
     return _engine
+
+
+def _set_sqlite_pragmas(dbapi_conn, _connection_record) -> None:
+    """Apply WAL + busy_timeout to each raw SQLite connection.
+
+    Registered as a SQLAlchemy ``connect`` listener so the PRAGMAs apply even
+    to connections opened by the pool after the engine is created.
+    """
+    cur = dbapi_conn.cursor()
+    try:
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.execute("PRAGMA busy_timeout=5000")
+        cur.execute("PRAGMA synchronous=NORMAL")
+        cur.execute("PRAGMA foreign_keys=ON")
+    finally:
+        cur.close()
 
 
 def reset_engine() -> None:
