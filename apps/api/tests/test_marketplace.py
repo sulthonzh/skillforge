@@ -129,6 +129,126 @@ def test_stub_delete():
     assert adapter.delete(listing.id) is False
 
 
+# ---- LocalStubAdapter: re-publish dedup (regression for duplicate listings) ----
+
+
+def test_stub_republish_same_skill_does_not_duplicate(tmp_path):
+    """Re-publishing the same skill must update, not create a new listing.
+
+    Regression: the listing id used to be keyed on a content hash, so every
+    publish created a new row and the Browse panel showed the same skill N
+    times. The id must be stable across re-publishes.
+    """
+    adapter = LocalStubAdapter(root=tmp_path)
+
+    pkg_v1 = b"package bytes v1"
+    l1 = adapter.publish(
+        skill_name="my-skill",
+        package_bytes=pkg_v1,
+        listing_meta={"version": "0.1.0", "title": "My Skill"},
+    )
+
+    pkg_v2 = b"package bytes v2 (different content, e.g. new version)"
+    l2 = adapter.publish(
+        skill_name="my-skill",
+        package_bytes=pkg_v2,
+        listing_meta={"version": "0.2.0", "title": "My Skill"},
+    )
+
+    # Same listing id → updated in place, not duplicated.
+    assert l1.id == l2.id
+    assert l2.version == "0.2.0"
+    # Exactly one listing in the index.
+    results = adapter.search("")
+    assert len([r for r in results if r.name == "my-skill"]) == 1
+
+
+def test_stub_republish_sweeps_legacy_hashed_ids(tmp_path):
+    """A pre-fix index.json with legacy '<name>-<hash>' ids gets cleaned up.
+
+    Simulates a user who already has duplicate listings from before the fix:
+    on next publish, the stale legacy entries for the same skill must be
+    removed so the Browse panel stops showing duplicates.
+    """
+    adapter = LocalStubAdapter(root=tmp_path)
+
+    # Seed the index as it looked BEFORE the fix: three legacy-hash ids for
+    # the same skill name (exactly the bug the user hit on the marketplace page).
+    index_path = tmp_path / "index.json"
+    index_path.write_text(
+        json.dumps(
+            {
+                "listings": {
+                    "skill-creator-aabbccdd": {
+                        "id": "skill-creator-aabbccdd",
+                        "name": "skill-creator",
+                        "title": "Skill Creator",
+                        "description": "old v1",
+                        "version": "0.1.0",
+                        "author": "you",
+                        "tags": [],
+                        "license": "MIT",
+                        "price_usd": 0.0,
+                        "rating": 0.0,
+                        "reviews_count": 0,
+                        "downloads": 3,
+                    },
+                    "skill-creator-11223344": {
+                        "id": "skill-creator-11223344",
+                        "name": "skill-creator",
+                        "title": "Skill Creator",
+                        "description": "old v2",
+                        "version": "0.2.0",
+                        "author": "you",
+                        "tags": [],
+                        "license": "MIT",
+                        "price_usd": 0.0,
+                        "rating": 0.0,
+                        "reviews_count": 0,
+                        "downloads": 1,
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    # Stale bundle files that match the legacy ids.
+    (tmp_path / "skill-creator-aabbccdd.skillpkg").write_bytes(b"old v1")
+    (tmp_path / "skill-creator-11223344.skillpkg").write_bytes(b"old v2")
+
+    # Re-publish — this must collapse to a single listing.
+    adapter.publish(
+        skill_name="skill-creator",
+        package_bytes=b"new package v3",
+        listing_meta={"version": "0.3.0", "title": "Skill Creator"},
+    )
+
+    results = adapter.search("")
+    creator_results = [r for r in results if r.name == "skill-creator"]
+    assert len(creator_results) == 1
+    assert creator_results[0].version == "0.3.0"
+    # The stale bundle files are gone.
+    assert not (tmp_path / "skill-creator-aabbccdd.skillpkg").exists()
+    assert not (tmp_path / "skill-creator-11223344.skillpkg").exists()
+
+
+def test_stub_legacy_id_detection_does_not_clobber_unrelated(tmp_path):
+    """The legacy-id sweep must only remove entries for the SAME skill name."""
+    adapter = LocalStubAdapter(root=tmp_path)
+    adapter.publish(
+        skill_name="skill-a", package_bytes=b"a", listing_meta={}
+    )
+    adapter.publish(
+        skill_name="skill-b", package_bytes=b"b", listing_meta={}
+    )
+    # Re-publish skill-a — skill-b must survive.
+    adapter.publish(
+        skill_name="skill-a", package_bytes=b"a-v2", listing_meta={"version": "0.2.0"}
+    )
+    names = sorted(r.name for r in adapter.search(""))
+    assert names == ["skill-a", "skill-b"]
+
+
 # ---- ApprovalManager ----
 
 

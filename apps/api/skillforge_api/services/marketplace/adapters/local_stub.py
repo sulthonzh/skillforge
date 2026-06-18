@@ -11,8 +11,8 @@ real SkillForge Marketplace website must satisfy.
 
 from __future__ import annotations
 
-import hashlib
 import json
+import re
 from pathlib import Path
 from threading import RLock
 from typing import Any
@@ -55,9 +55,19 @@ class LocalStubAdapter:
         )
 
     def _listing_id(self, skill_name: str, package_bytes: bytes) -> str:
-        # Stable id from name + package hash so re-publishing updates, not duplicates.
-        h = hashlib.sha256(package_bytes).hexdigest()[:8]
-        return f"{skill_name}-{h}"
+        # Stable id keyed ONLY on the skill name, so re-publishing the same
+        # skill updates the existing listing instead of creating duplicates.
+        # (The package hash used to be part of the id; that produced a new row
+        # every publish — the Browse panel would show the same skill N times.)
+        return f"{skill_name}"
+
+    @staticmethod
+    def _is_listing_for(name: str, listing_id: str) -> bool:
+        """True if ``listing_id`` refers to ``name`` (current or legacy id)."""
+        if listing_id == name:
+            return True
+        # Legacy ids looked like "skill-name-<8 hex chars>".
+        return bool(re.fullmatch(rf"{re.escape(name)}-[0-9a-f]{{8}}", listing_id))
 
     # ---- adapter protocol ----
     def publish(
@@ -69,10 +79,23 @@ class LocalStubAdapter:
     ) -> Listing:
         with self._lock:
             listing_id = self._listing_id(skill_name, package_bytes)
+            listings = self._load_index()
+
+            # Sweep legacy/stale entries for the same skill name. Older versions
+            # keyed the id on a content hash, so re-publishing left duplicates;
+            # remove those now so a re-publish also cleans the index.
+            stale_ids = [
+                lid
+                for lid in list(listings.keys())
+                if lid != listing_id and self._is_listing_for(skill_name, lid)
+            ]
+            for lid in stale_ids:
+                listings.pop(lid, None)
+                (self._root / f"{lid}.skillpkg").unlink(missing_ok=True)
+
             # Store the bundle.
             (self._root / f"{listing_id}.skillpkg").write_bytes(package_bytes)
             # Build/update the listing.
-            listings = self._load_index()
             existing = listings.get(listing_id, {})
             downloads = existing.get("downloads", 0)
             listing = Listing(
