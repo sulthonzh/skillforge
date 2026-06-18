@@ -173,8 +173,23 @@ async def list_presets() -> dict:
 
 @router.get("/provider")
 async def get_provider_config() -> dict:
+    """Return the configured provider config PLUS the effective provider + degradation status.
+
+    The extra ``effective``, ``degraded``, and ``fallback_reason`` fields let
+    the UI warn the user when their configured provider failed to initialize
+    (e.g. missing API key) and the app silently fell back to mock. Without this,
+    users got heuristic mock output thinking it was AI-generated.
+    """
     cfg = get_user_config_store().get_provider()
-    return cfg.masked()
+    data = cfg.masked()
+    # Merge in the effective-provider signal so the UI can show a warning.
+    from ..services.ai_provider import get_provider_status
+
+    status = get_provider_status()
+    data["effective"] = status["effective"]
+    data["degraded"] = status["degraded"]
+    data["fallback_reason"] = status["fallback_reason"]
+    return data
 
 
 @router.put("/provider")

@@ -209,6 +209,21 @@ function ProviderCard() {
             <Badge variant="success" className="ml-2">key set</Badge>
           )}
         </CardDescription>
+        {/* Tier 0.2: warn when the configured provider isn't actually running
+            (e.g. key missing) and we silently fell back to mock. */}
+        {cfg?.degraded && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-[12px] text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <div className="flex-1">
+              <span className="font-medium">
+                Running in mock mode ({cfg.effective}).
+              </span>{" "}
+              Your configured provider isn&apos;t ready
+              {cfg.fallback_reason ? `: ${cfg.fallback_reason}` : ""}. Set the API
+              key above and test the connection to enable real AI generation.
+            </div>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {/* Provider selector */}

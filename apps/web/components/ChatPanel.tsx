@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles, TriangleAlert } from "lucide-react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/input";
 import { api, ApiError } from "@/lib/api";
@@ -22,7 +22,30 @@ export function ChatPanel({
   const [message, setMessage] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // Tier 0.2: detect silent mock fallback so we can warn the user that their
+  // configured AI provider isn't actually being used.
+  const [degraded, setDegraded] = React.useState(false);
+  const [fallbackReason, setFallbackReason] = React.useState<string | null>(null);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    api
+      .getProvider()
+      .then((cfg) => {
+        if (cancelled) return;
+        if (cfg.degraded) {
+          setDegraded(true);
+          setFallbackReason(cfg.fallback_reason ?? null);
+        }
+      })
+      .catch(() => {
+        /* non-fatal — the banner is best-effort */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function submit(msg?: string) {
     const text = (msg ?? message).trim();
@@ -46,6 +69,22 @@ export function ChatPanel({
 
   return (
     <div className="flex flex-col gap-3">
+      {degraded && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-[12px] text-amber-700 dark:text-amber-400">
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <div className="flex-1">
+            <span className="font-medium">Running in mock mode.</span> Your
+            configured AI provider isn&apos;t ready
+            {fallbackReason ? ` (${fallbackReason})` : ""}, so skills are
+            generated from heuristics, not AI.{" "}
+            <a href="/settings" className="underline underline-offset-2">
+              Set your API key in Settings
+            </a>
+            .
+          </div>
+        </div>
+      )}
+
       <div className="relative">
         <Textarea
           ref={textareaRef}

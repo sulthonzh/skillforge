@@ -508,16 +508,66 @@ def get_provider_for_config(cfg) -> AIProvider:
 
 
 def get_active_provider() -> AIProvider:
-    """Return the provider honoring the current user config (file > env > default)."""
+    """Return the provider honoring the current user config (file > env > default).
+
+    If the user's configured provider can't be initialized (e.g. no API key
+    set yet), this falls back to the env-driven provider (mock by default) so
+    the app stays usable — but the fallback is now LOGGED at WARNING level so
+    it's visible, and ``get_provider_status()`` exposes the degradation so the
+    UI can warn the user instead of silently serving mock output.
+    """
     from .user_config import get_user_config_store
 
     cfg = get_user_config_store().get_provider()
     try:
         return get_provider_for_config(cfg)
-    except AIProviderError:
-        # If the user's config is incomplete (e.g. no key yet), fall back to the
-        # env-driven provider so the app stays usable (mock by default).
-        return get_provider()
+    except AIProviderError as exc:
+        # Log the fallback — it used to be completely silent, which misled users
+        # into thinking they were getting AI output when they were getting mock.
+        fallback = get_provider()
+        log.warning(
+            "Configured provider %r failed to initialize (%s); falling back to "
+            "%r. Skills will be generated from heuristics, not AI. Set the API "
+            "key in Settings to enable real AI generation.",
+            cfg.provider,
+            exc,
+            fallback.name,
+        )
+        return fallback
+
+
+def get_provider_status() -> dict[str, object]:
+    """Return the configured vs. effective provider, for UI degradation warnings.
+
+    Returns a dict with:
+      * ``configured``: the provider the user picked in Settings (string).
+      * ``effective``: the provider actually serving requests (string).
+      * ``degraded``: True iff the configured provider failed and we fell back.
+      * ``fallback_reason``: the exception message when degraded, else None.
+
+    The eval/chat routers and the Settings UI use this to warn users that
+    they're getting mock output instead of silently serving it.
+    """
+    from .user_config import get_user_config_store
+
+    cfg = get_user_config_store().get_provider()
+    configured = cfg.provider
+    try:
+        provider = get_provider_for_config(cfg)
+        return {
+            "configured": configured,
+            "effective": provider.name,
+            "degraded": False,
+            "fallback_reason": None,
+        }
+    except AIProviderError as exc:
+        fallback = get_provider()
+        return {
+            "configured": configured,
+            "effective": fallback.name,
+            "degraded": True,
+            "fallback_reason": str(exc),
+        }
 
 
 # ----------------------------------------------------------------------------

@@ -167,3 +167,80 @@ def test_bootstrap_skill_is_valid():
     path = get_settings().skills_dir / "skill-creator"
     result = SkillValidator().validate_directory(path)
     assert result.valid, [i.message for i in result.errors]
+
+
+# ---------------------------------------------------------------------------
+# Tier 0.2 — surface silent mock fallback (degradation signal)
+# ---------------------------------------------------------------------------
+
+
+def test_get_provider_reports_degraded_when_key_missing(client, tmp_path, monkeypatch):
+    """When a real provider is configured but its key is missing, the API must
+    report degraded=True + effective='mock' so the UI can warn the user.
+
+    Regression for the silent-fallback bug: users picked e.g. Anthropic, left
+    the key blank, and got mock output with no indication it wasn't real AI.
+    """
+    store = user_config.UserConfigStore(tmp_path / "c.json")
+    store.set_provider({"provider": "anthropic", "model": "claude-3-5-sonnet-latest"})
+    user_config.set_user_config_store(store)
+
+    r = client.get("/api/settings/provider")
+    body = r.json()
+    assert body["provider"] == "anthropic"
+    assert body["degraded"] is True
+    assert body["effective"] == "mock"
+    assert body["fallback_reason"]  # a non-empty message
+
+
+def test_get_provider_reports_not_degraded_when_mock_chosen(client, tmp_path, monkeypatch):
+    """When the user deliberately chose mock, that's not 'degraded' — it's what
+    they asked for. provider == effective == mock, degraded=False."""
+    store = user_config.UserConfigStore(tmp_path / "c.json")
+    store.set_provider({"provider": "mock"})
+    user_config.set_user_config_store(store)
+
+    r = client.get("/api/settings/provider")
+    body = r.json()
+    assert body["provider"] == "mock"
+    assert body["effective"] == "mock"
+    assert body["degraded"] is False
+
+
+def test_get_provider_reports_not_degraded_when_configured_ok(client, tmp_path, monkeypatch):
+    """A fully-configured real provider reports degraded=False."""
+    store = user_config.UserConfigStore(tmp_path / "c.json")
+    store.set_provider(
+        {"provider": "ollama-local", "model": "llama3.1", "ollama_base_url": "http://localhost:11434"}
+    )
+    user_config.set_user_config_store(store)
+
+    r = client.get("/api/settings/provider")
+    body = r.json()
+    assert body["provider"] == "ollama-local"
+    assert body["degraded"] is False
+    assert body["effective"] == "ollama-local"
+
+
+def test_get_provider_status_function():
+    """get_provider_status() returns the degradation dict directly (unit-level)."""
+    from skillforge_api.services.ai_provider import get_provider_status
+
+    status = get_provider_status()
+    assert "configured" in status
+    assert "effective" in status
+    assert "degraded" in status
+    assert "fallback_reason" in status
+    assert isinstance(status["degraded"], bool)
+
+
+def test_planner_model_is_mock_on_mock_path():
+    """The manifest's planner_model must be 'mock' (not the user's configured
+    model) when the mock provider is active. Regression for item 1.6: the mock
+    path stamped the user's real model name onto heuristic output."""
+    from skillforge_api.services.ai_skill_planner import AISkillPlanner
+
+    planner = AISkillPlanner()
+    # The conftest forces mock, so this planner runs mock.
+    assert planner._provider.name == "mock"
+    assert planner._planner_model == "mock"

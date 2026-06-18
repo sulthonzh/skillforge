@@ -123,6 +123,13 @@ export interface ProviderConfigView {
   cohere_api_key_set: boolean;
   cohere_api_key_preview: string;
   model: string;
+  // Tier 0.2: surface silent mock fallback so the UI can warn the user.
+  // `effective` is the provider actually serving requests (may differ from
+  // `provider` if the configured one failed to initialize and we fell back).
+  // `degraded` is true iff that fallback happened. `fallback_reason` explains why.
+  effective?: ProviderKind;
+  degraded?: boolean;
+  fallback_reason?: string | null;
 }
 
 export interface ProviderUpdate {

@@ -164,7 +164,15 @@ class AISkillPlanner:
         self._planner_model = self._resolve_planner_model()
 
     def _resolve_planner_model(self) -> str:
-        """Label the manifest with the model actually used (user config > env)."""
+        """Label the manifest with the model actually used (user config > env).
+
+        When the active provider is mock (e.g. the user's configured provider
+        failed to initialize), we stamp ``"mock"`` instead of the user's
+        configured model name — otherwise the manifest would falsely claim a
+        real model produced a heuristic result (item 1.6 in the improvement plan).
+        """
+        if self._provider.name == "mock":
+            return "mock"
         try:
             from .user_config import get_user_config_store
 
