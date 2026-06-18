@@ -69,19 +69,19 @@ of scope. Status as of v1.x.
 - [x] **Real configured paths in UI** — `~/.skillforge/skills` shown live via `GET /api/settings/paths`
 
 ### Tests
-- [x] **224 tests passing** across 20 files (planner, generator, installer, validator, registry, catalog, all 6 providers, marketplace pairing/packaging/bridge/approvals, eval, security middleware, rate limiting, timeouts, logging)
+- [x] **244 tests passing** across 22 files (planner, generator, installer, validator, registry, catalog, all 6 providers, marketplace pairing/packaging/bridge/approvals, eval, security middleware, rate limiting, timeouts, logging, atomic install, SQLite WAL, async handlers, mock-fallback signal)
 
 ---
 
 ## Planned (v1.x+)
 
-### Trust & safety (Tier 0 from the deep review — ship before v1.0 tag)
-These are the remaining items from [`docs/improvement-plan.md`](./improvement-plan.md) that can lose data or mislead. Items already addressed (split timeouts, security hardening) are struck.
+### Trust & safety (Tier 0 from the deep review) ✅
+These were the items from [`docs/improvement-plan.md`](./improvement-plan.md) that could lose data or mislead. All four are now fixed.
 
-- [ ] **0.1 Async handlers do blocking I/O on the event loop** — provider `complete()` is synchronous; wrap in `run_in_threadpool` or make providers async so a slow LLM call can't stall concurrent requests.
-- [ ] **0.2 Silent mock fallback misleads users** — if the configured provider fails to initialize, the app silently falls back to the mock planner. Surface a clear warning in the UI instead.
-- [ ] **0.3 Non-atomic install can delete a skill mid-failure** — install writes in place; a failure partway through leaves a half-installed skill. Install to a temp dir + `os.replace`.
-- [ ] **0.4 SQLite missing WAL** — enable `PRAGMA journal_mode=WAL` to avoid `database is locked` under concurrent eval/install. ~~0.5 Security (0.0.0.0 bind + CORS * + path traversal)~~ ✅ fixed.
+- [x] **0.1 Async handlers do blocking I/O on the event loop** — wrapped the 5 blocking handlers (`plan-skill`, `suggest-tools`, `eval/run`, `provider/test`, `models`) in `run_in_threadpool` so slow provider calls no longer freeze the event loop. Chose threadpool over a full async refactor for minimal blast radius.
+- [x] **0.2 Silent mock fallback misleads users** — `get_active_provider()` now logs the fallback at WARNING; new `get_provider_status()` exposes `effective`/`degraded`/`fallback_reason`; the ChatPanel and Settings page show an amber "Running in mock mode" banner; `planner_model` stamps `"mock"` (not the user's configured model) on the mock path.
+- [x] **0.3 Non-atomic install can delete a skill mid-failure** — install now writes to a staging dir + atomic `os.replace`; `remove()` deletes the registry row before rmtree; `_compute_bump` raises on malformed YAML instead of silently skipping.
+- [x] **0.4 SQLite missing WAL** — a SQLAlchemy `connect` listener sets `journal_mode=WAL`, `busy_timeout=5000`, `synchronous=NORMAL`, `foreign_keys=ON` on every connection. No more "database is locked" under the eval runner's concurrent transactions.
 
 ### Generated skill quality (Tier 1)
 - [ ] **1.1 Stack-specific code scaffolds** — the tool artifacts are real scripts, but example prompts/templates are still generic per-domain. Make the FastAPI scaffold genuinely runnable as a starter.
@@ -145,6 +145,6 @@ If any of these matter to you, SkillForge's permissive MIT license and clean ser
 Before tagging v1.0:
 - [ ] `SECURITY.md` — document the threat model (local-first, 127.0.0.1, browser CSRF is the primary threat, mitigated by the origin guard).
 - [ ] `CONTRIBUTING.md` — dev setup, test/build commands, code-review norms.
-- [ ] Tier 0.1–0.4 above (data safety).
+- ~~Tier 0.1–0.4 (data safety)~~ ✅ all fixed.
 - [ ] License scan of bundled dependencies (PyInstaller bundles third-party code).
 - [ ] Signed releases (cosign / GPG) for the binaries.
