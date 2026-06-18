@@ -6,9 +6,10 @@ on every call. These never touch the main ``/api/*`` routes.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from ..rate_limit import get_pairing_limiter
 from ..schemas.manifest import SkillManifest
 from ..services.marketplace.approvals import ApprovalStatus, get_approval_manager
 from ..services.marketplace.bridge import BridgePrincipal, require_bridge, require_scope
@@ -20,6 +21,13 @@ from ..services.skill_registry import SkillRegistry
 router = APIRouter(prefix="/api/bridge", tags=["bridge"])
 
 
+def _client_key(request: Request) -> str:
+    """Stable per-client key for rate limiting (see marketplace._client_key)."""
+    ip = request.client.host if request.client else "unknown"
+    origin = request.headers.get("origin", "")
+    return f"{ip}:{origin}"
+
+
 # ---- pairing (no token yet — the code IS the auth) ----
 
 
@@ -29,8 +37,18 @@ class CompletePairingBody(BaseModel):
 
 
 @router.post("/pair/complete")
-async def complete_pairing(body: CompletePairingBody):
-    """Exchange a pairing code for a bridge token. Single-use; 10-min TTL."""
+async def complete_pairing(body: CompletePairingBody, request: Request):
+    """Exchange a pairing code for a bridge token. Single-use; 10-min TTL.
+
+    Rate-limited: an attacker can't brute-force the 6-char code faster than
+    10 attempts/minute, which makes the ~887M codespace unreachable in the
+    10-minute code lifetime.
+    """
+    if not get_pairing_limiter().allow(_client_key(request)):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many pairing attempts. Wait a minute and try again.",
+        )
     result = get_pairing_manager().complete_pairing(body.code)
     if result is None:
         raise HTTPException(status_code=401, detail="Invalid, expired, or used pairing code")

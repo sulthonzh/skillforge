@@ -96,6 +96,15 @@ def create_app(static_dir: str | Path | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Local-origin guard — blocks browser requests from non-local origins
+    # (CSRF / DNS-rebinding defense for the token-less local endpoints). CORS
+    # alone isn't enough: browsers send simple cross-origin GETs regardless of
+    # CORS, and DNS rebinding defeats the same-origin policy. Any request that
+    # carries an Origin/Referer must name a loopback host; origin-less requests
+    # (curl, the CLI, server-to-server) are allowed. See local_origin_guard.py.
+    from .local_origin_guard import LocalOriginGuardMiddleware
+
+    app.add_middleware(LocalOriginGuardMiddleware)
 
     # 1) API routes first — they win over the static mount below.
     app.include_router(health.router)

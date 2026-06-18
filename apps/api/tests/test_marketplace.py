@@ -54,12 +54,20 @@ def isolated_stores(tmp_path, monkeypatch):
     set_approval_manager(approvals)
     set_adapter(adapter)
 
+    # Reset the pairing rate limiter so tests that drive pairing repeatedly
+    # (the e2e flow, the tokens-lifecycle test, etc.) aren't throttled by a
+    # previous test's budget.
+    from skillforge_api.rate_limit import set_pairing_limiter, RateLimiter
+
+    set_pairing_limiter(RateLimiter(limit=1000, window_seconds=60.0))
+
     yield tmp_path
 
     # Restore the real singletons so we don't leak into other test modules.
     set_pairing_manager(None)
     set_approval_manager(None)
     set_adapter(None)
+    set_pairing_limiter(None)
 
 
 @pytest.fixture

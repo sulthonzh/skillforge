@@ -14,6 +14,7 @@ plaintext secret is returned exactly once (at pairing time) and never stored.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -131,7 +132,13 @@ class PairingManager:
 
     # ---- token validation ----
     def validate(self, plaintext: str) -> TokenInfo | None:
-        """Validate a bearer token. Returns the TokenInfo if valid+active, else None."""
+        """Validate a bearer token. Returns the TokenInfo if valid+active, else None.
+
+        The token lookup compares SHA-256 hashes with ``hmac.compare_digest``
+        (constant-time) so an attacker can't infer the stored hash from response
+        timing. Note the hash itself is not a secret — the plaintext token is —
+        but constant-time comparison is cheap defense-in-depth.
+        """
         if not plaintext:
             return None
         h = hashlib.sha256(plaintext.encode()).hexdigest()
@@ -139,7 +146,8 @@ class PairingManager:
             self._load_tokens()
             assert self._tokens_cache is not None
             for t in self._tokens_cache:
-                if t.secret_hash == h and not t.revoked:
+                # Constant-time comparison guards against timing side channels.
+                if not t.revoked and hmac.compare_digest(t.secret_hash, h):
                     t.last_used_at = _utcnow().isoformat()
                     self._write_tokens()
                     return t

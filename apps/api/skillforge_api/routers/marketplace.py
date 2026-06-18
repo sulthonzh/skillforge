@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from ..rate_limit import get_pairing_limiter
 from ..services.marketplace.adapters import get_adapter
 from ..services.marketplace.approvals import ApprovalStatus, get_approval_manager
 from ..services.marketplace.packaging import PackagingError, SkillPackager
@@ -20,6 +21,19 @@ from ..schemas.manifest import SkillManifest
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/marketplace", tags=["marketplace"])
+
+
+def _client_key(request: Request) -> str:
+    """A stable key per client for rate limiting.
+
+    For a 127.0.0.1-bound server the client IP is always loopback, so we also
+    fold in the Origin header — a browser-driven attacker has a distinct origin
+    from the local UI, and this keeps a flood from one tab from locking out a
+    legitimate pairing started from another.
+    """
+    ip = request.client.host if request.client else "unknown"
+    origin = request.headers.get("origin", "")
+    return f"{ip}:{origin}"
 
 
 # ---- search/browse ----
@@ -154,8 +168,18 @@ async def reject_install(approval_id: str):
 
 
 @router.post("/pair/code")
-async def generate_pair_code():
-    """Generate a pairing code for the marketplace website to present."""
+async def generate_pair_code(request: Request):
+    """Generate a pairing code for the marketplace website to present.
+
+    Rate-limited to keep an attacker from flooding the store with pending codes
+    or hammering the endpoint. The code itself is CSPRNG-generated and single-
+    use; this is defense-in-depth.
+    """
+    if not get_pairing_limiter().allow(_client_key(request)):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many pairing attempts. Wait a minute and try again.",
+        )
     code = get_pairing_manager().generate_code()
     return {"code": code, "ttl_minutes": 10}
 
