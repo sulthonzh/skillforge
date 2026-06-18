@@ -2,15 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
-
 from skillforge_api.schemas.manifest import (
-    Architecture,
-    Outputs,
-    Safety,
-    SkillAI,
     SkillManifest,
-    SkillMeta,
     Tool,
 )
 from skillforge_api.services.ai_skill_planner import AISkillPlanner

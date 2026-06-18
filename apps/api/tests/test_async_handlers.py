@@ -7,9 +7,7 @@ provider calls inline on the event loop, freezing every concurrent request.
 
 from __future__ import annotations
 
-import asyncio
 import threading
-import time
 
 import pytest
 from fastapi.testclient import TestClient

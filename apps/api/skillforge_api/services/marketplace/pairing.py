@@ -13,19 +13,18 @@ plaintext secret is returned exactly once (at pairing time) and never stored.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import hmac
 import json
 import os
 import secrets
 import string
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import RLock
 from typing import Any
-
-from ...settings import get_settings
 
 CODE_TTL_MINUTES = 10
 CODE_ALPHABET = string.ascii_uppercase + string.digits  # no ambiguous chars
@@ -204,15 +203,11 @@ class PairingManager:
         # Atomic write with restricted perms (the file proves pairing happened).
         tmp = self._path.with_suffix(".json.tmp")
         tmp.write_text(payload, encoding="utf-8")
-        try:
+        with contextlib.suppress(OSError):
             os.chmod(tmp, 0o600)
-        except OSError:
-            pass
         tmp.replace(self._path)
-        try:
+        with contextlib.suppress(OSError):
             os.chmod(self._path, 0o600)
-        except OSError:
-            pass
 
 
 # ---- singleton ----

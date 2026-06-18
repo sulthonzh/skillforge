@@ -15,7 +15,7 @@ from .ai_provider import (
 from .ai_skill_planner import AISkillPlanner, plan_skill
 from .eval import DEFAULT_SUITE, EvalRunner, EvalRunSummary, EvalSuiteStore, SuiteNotFound
 from .skill_generator import GeneratedFile, SkillGenerator
-from .skill_installer import InstallOutcome, InstallerError, SkillInstaller
+from .skill_installer import InstallerError, InstallOutcome, SkillInstaller
 from .skill_registry import SkillRegistry
 from .skill_validator import SkillValidator, ValidationResult
 from .template_renderer import TemplateRenderer

@@ -2,15 +2,23 @@
 
 from . import (
     bridge as bridge_router,
+)
+from . import (
     chat,
-    deploy as deploy_router,
-    eval as eval_router,
     health,
-    marketplace as marketplace_router,
     registry,
     settings,
     skills,
     templates,
+)
+from . import (
+    deploy as deploy_router,
+)
+from . import (
+    eval as eval_router,
+)
+from . import (
+    marketplace as marketplace_router,
 )
 
 __all__ = [

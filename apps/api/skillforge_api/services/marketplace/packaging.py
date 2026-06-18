@@ -19,7 +19,6 @@ import json
 import tarfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 import yaml
 

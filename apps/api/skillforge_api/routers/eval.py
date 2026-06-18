@@ -12,7 +12,7 @@ from starlette.concurrency import run_in_threadpool
 
 from ..database import EvalResultRecord, EvalRunRecord, session_scope
 from ..services.eval.runner import EvalRunner
-from ..services.eval.suites import EvalSuiteStore, SuiteNotFound, get_suite_store
+from ..services.eval.suites import SuiteNotFound, get_suite_store
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/eval", tags=["eval"])
@@ -90,9 +90,11 @@ def _resolve_prompts(body: RunBody) -> tuple[list[str], str, int | None]:
 
     # Per-skill example prompts (apples-to-apples within a skill's own domain).
     if body.use_skill_examples:
-        from ..services.skill_registry import SkillRegistry
         from pathlib import Path
+
         import yaml
+
+        from ..services.skill_registry import SkillRegistry
 
         record = SkillRegistry().get(body.skill_name)
         if record:

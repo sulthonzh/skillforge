@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
-from skillforge_api.services import user_config
 from skillforge_api.services.user_config import (
     ProviderConfig,
     UserConfigStore,

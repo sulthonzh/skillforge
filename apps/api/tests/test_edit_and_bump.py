@@ -51,7 +51,7 @@ def test_reinstall_with_tool_added_bumps_minor():
 
 def test_reinstall_with_name_change_bumps_major():
     manifest, _ = _plan_and_install("backend skill for FastAPI and PostgreSQL")
-    edited = manifest.model_copy(
+    manifest.model_copy(
         update={"skill": manifest.skill.model_copy(update={"name": "backend-fastapi-postgres-v2"})}
     )
     # Name change → new dir; the old one isn't overwritten, so this is a fresh
@@ -74,8 +74,9 @@ def test_reinstall_with_name_change_bumps_major():
 
 def test_bumped_version_persists_to_config_yaml():
     manifest, _ = _plan_and_install("backend skill for FastAPI and PostgreSQL")
-    from skillforge_api.schemas.manifest import Tool
     import yaml
+
+    from skillforge_api.schemas.manifest import Tool
     from skillforge_api.settings import get_settings
 
     edited = manifest.model_copy(

@@ -11,11 +11,10 @@ over the static file mount at ``/``.
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-from contextlib import asynccontextmanager
-
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -23,15 +22,25 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__
 from .routers import (
     bridge as bridge_router,
+)
+from .routers import (
     chat,
-    deploy as deploy_router,
-    eval as eval_router,
     health,
-    marketplace as marketplace_router,
     registry,
-    settings as settings_router,
     skills,
     templates,
+)
+from .routers import (
+    deploy as deploy_router,
+)
+from .routers import (
+    eval as eval_router,
+)
+from .routers import (
+    marketplace as marketplace_router,
+)
+from .routers import (
+    settings as settings_router,
 )
 from .settings import get_settings
 
@@ -42,7 +51,7 @@ log = logging.getLogger("skillforge_api")
 # consistent timestamps + logger names. The CLI additionally passes
 # build_log_config() to uvicorn's log_config so uvicorn's own access log uses
 # the same format. See skillforge_api/logging_config.py.
-from .logging_config import configure_logging
+from .logging_config import configure_logging  # noqa: E402
 
 configure_logging()
 

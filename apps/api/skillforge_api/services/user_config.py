@@ -16,6 +16,7 @@ Only provider-related fields are mutable from the UI; everything else stays on
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 from datetime import datetime, timezone
@@ -47,7 +48,7 @@ class ProviderConfig(BaseModel):
     cohere_api_key: str = Field(default="")
     model: str = Field(default="")
 
-    def merged_over(self, settings: Settings) -> "ProviderConfig":
+    def merged_over(self, settings: Settings) -> ProviderConfig:
         """Return a copy with empty fields filled from *settings* (the env floor)."""
         return ProviderConfig(
             provider=self.provider or settings.ai_provider,
@@ -194,17 +195,13 @@ class UserConfigStore:
         payload = json.dumps(data, indent=2, default=str)
         tmp.write_text(payload, encoding="utf-8")
         # Restrict perms — the file may contain an API key.
-        try:
+        with contextlib.suppress(OSError):
             os.chmod(tmp, 0o600)
-        except OSError:
-            pass
         tmp.replace(self._path)
         # Ensure the final file is also restricted (replace copies perms on Unix
         # but be explicit for non-tmp cases).
-        try:
+        with contextlib.suppress(OSError):
             os.chmod(self._path, 0o600)
-        except OSError:
-            pass
 
     def reset_cache(self) -> None:
         """Force the next read to hit disk (used by tests)."""

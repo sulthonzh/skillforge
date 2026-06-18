@@ -7,9 +7,9 @@ lives in the templates themselves so they stay editable by contributors.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from importlib import resources
 from pathlib import Path
-from typing import Iterable
 
 from jinja2 import Environment, StrictUndefined, Template
 

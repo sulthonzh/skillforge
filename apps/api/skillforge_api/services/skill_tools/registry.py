@@ -7,7 +7,6 @@ files to emit under the skill's ``tools/`` directory (+ stack config files).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from ...schemas.manifest import SkillManifest
 from .scripts import SCRIPTS
@@ -109,7 +108,7 @@ class ToolArtifactRegistry:
         lines: list[str] = []
         for art in artifacts:
             if art.cli_command:
-                script = art.path.replace("tools/", "")
+                art.path.replace("tools/", "")
                 lines.append(f'{art.cli_command}: ## {art.cli_command}\\n\tbash {art.path} "$@"')
         return "\n\n".join(lines)
 

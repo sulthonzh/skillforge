@@ -1,0 +1,13 @@
+# CODEOWNERS — default reviewers for PRs touching each area.
+# Adjust the GitHub handle(s) below to match your maintainers.
+
+# Default: everything
+*                        @sulthonzh
+
+# By area (more specific entries take precedence)
+/apps/api/               @sulthonzh
+/apps/web/               @sulthonzh
+/apps/cli/               @sulthonzh
+/scripts/                @sulthonzh
+/.github/workflows/      @sulthonzh
+/docs/                   @sulthonzh

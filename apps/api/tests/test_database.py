@@ -13,11 +13,10 @@ from __future__ import annotations
 
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 
 from sqlalchemy import text
 
-from skillforge_api.database import get_engine, session_scope
+from skillforge_api.database import session_scope
 
 
 def _pragma(session, name: str) -> str:

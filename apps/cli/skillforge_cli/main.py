@@ -16,11 +16,9 @@ identical between the Web UI and the command line.
 
 from __future__ import annotations
 
-import json
 import os
-import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import typer
 import yaml
@@ -29,6 +27,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 # Import the shared backend service layer. The CLI depends on skillforge-api.
+from skillforge_api.logging_config import build_log_config
 from skillforge_api.schemas.manifest import (
     Architecture,
     Outputs,
@@ -250,7 +249,6 @@ def serve(
     """
     import uvicorn
 
-    from skillforge_api.logging_config import build_log_config
 
     settings = get_settings()
     host = host or settings.api_host
@@ -313,7 +311,7 @@ def serve(
 def _serve_dev(host: str, port: int) -> None:
     """Run the API on *port* and the Next dev server on :3000 in parallel."""
     import signal
-    import threading
+
     import uvicorn
 
     web_proc = None
@@ -351,7 +349,7 @@ def _serve_dev(host: str, port: int) -> None:
 @app.command()
 def plan(
     message: str = typer.Argument(..., help="Natural-language engineering need."),
-    output: Optional[Path] = typer.Option(
+    output: Path | None = typer.Option(
         None, "--output", "-o", help="Write the generated config.yaml to this path."
     ),
 ) -> None:
@@ -360,7 +358,7 @@ def plan(
         manifest, explanation = AISkillPlanner().plan(message)
     except ValueError as exc:
         console.print(f"[red]Error:[/red] {exc}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from exc
 
     _print_manifest(manifest, explanation)
 
@@ -409,7 +407,7 @@ def install(
         outcome = SkillInstaller().install(parsed, overwrite=overwrite)
     except InstallerError as exc:
         console.print(f"[red]Validation failed:[/red] {exc}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from exc
 
     if outcome.skipped_existing:
         console.print(

@@ -115,10 +115,7 @@ def _contains_word(haystack: str, token: str) -> bool:
 
     # Single-word token: compare against every word token in the haystack.
     if " " not in token_l:
-        for match in _WORD_TOKEN_RE.findall(hay_l):
-            if match == token_l:
-                return True
-        return False
+        return any(match == token_l for match in _WORD_TOKEN_RE.findall(hay_l))
 
     # Multi-word token: normalize whitespace runs in the haystack and substring-match.
     normalized = re.sub(r"[^a-z0-9.+ -]+", " ", hay_l)

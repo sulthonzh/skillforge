@@ -140,7 +140,6 @@ async def bridge_install(
         return {"installed": outcome.installed, "path": outcome.path, "approved_automatically": True}
 
     # Default: create a pending approval for the user to confirm.
-    import json
 
     approval = get_approval_manager().create(
         skill_name=body.manifest.skill.name,
@@ -168,7 +167,6 @@ async def bridge_approve(approval_id: str, principal: BridgePrincipal = Depends(
     approval = mgr.get(approval_id)
     if approval is None:
         raise HTTPException(status_code=404, detail="No such approval")
-    import json
     from ..schemas.manifest import SkillManifest
 
     manifest = SkillManifest.model_validate_json(approval.manifest_json)

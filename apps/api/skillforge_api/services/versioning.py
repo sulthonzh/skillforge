@@ -17,7 +17,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-
 _VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 
 

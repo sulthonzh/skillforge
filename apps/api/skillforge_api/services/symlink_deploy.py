@@ -21,7 +21,6 @@ If a tool doesn't follow symlinks, the UI offers a "copy" fallback.
 
 from __future__ import annotations
 
-import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -84,8 +83,7 @@ class ToolTargetDetector:
         # Auto-detect generic tools: any ~/.<name>/skills/ that isn't known.
         if home.is_dir():
             for entry in home.iterdir():
-                if not entry.is_dir() or entry.name.startswith("."):
-                    if entry.name.startswith("."):
+                if entry.name.startswith("."):
                         candidate = entry / "skills"
                         if candidate.is_dir() and candidate not in seen_dirs:
                             key = entry.name.lstrip(".")

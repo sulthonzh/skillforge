@@ -16,7 +16,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
-from ..settings import get_settings
 from ..services.ai_provider import (
     AIProviderError,
     list_models,
@@ -26,6 +25,7 @@ from ..services.user_config import (
     ProviderConfig,
     get_user_config_store,
 )
+from ..settings import get_settings
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/settings", tags=["settings"])

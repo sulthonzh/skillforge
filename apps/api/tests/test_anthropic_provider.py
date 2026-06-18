@@ -11,6 +11,8 @@ from skillforge_api.services.ai_provider import (
     AIProviderError,
     AnthropicProvider,
     list_models,
+)
+from skillforge_api.services.ai_provider import (
     test_provider_connection as _test_connection,
 )
 from skillforge_api.services.user_config import ProviderConfig

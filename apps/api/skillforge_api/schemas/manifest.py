@@ -117,6 +117,6 @@ class SkillManifest(BaseModel):
         return [t for t in self.tools if t.enabled]
 
     @model_validator(mode="after")
-    def _ensure_default_lists(self) -> "SkillManifest":
+    def _ensure_default_lists(self) -> SkillManifest:
         # Guarantee mutable defaults are non-None even when JSON omits them.
         return self

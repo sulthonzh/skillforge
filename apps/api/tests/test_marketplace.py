@@ -17,12 +17,11 @@ from skillforge_api.services.marketplace.approvals import (
     ApprovalStatus,
     set_approval_manager,
 )
+from skillforge_api.services.marketplace.packaging import PackagingError, SkillPackager
 from skillforge_api.services.marketplace.pairing import (
     PairingManager,
     set_pairing_manager,
 )
-from skillforge_api.services.marketplace.packaging import SkillPackager
-
 
 # ---------------------------------------------------------------------------
 # Isolation
@@ -57,7 +56,7 @@ def isolated_stores(tmp_path, monkeypatch):
     # Reset the pairing rate limiter so tests that drive pairing repeatedly
     # (the e2e flow, the tokens-lifecycle test, etc.) aren't throttled by a
     # previous test's budget.
-    from skillforge_api.rate_limit import set_pairing_limiter, RateLimiter
+    from skillforge_api.rate_limit import RateLimiter, set_pairing_limiter
 
     set_pairing_limiter(RateLimiter(limit=1000, window_seconds=60.0))
 
@@ -136,7 +135,7 @@ def test_packaging_round_trip():
 
 
 def test_packaging_unknown_skill_raises():
-    with pytest.raises(Exception):
+    with pytest.raises((FileNotFoundError, PackagingError)):
         SkillPackager().pack("does-not-exist")
 
 
@@ -401,7 +400,7 @@ def test_marketplace_publish_then_search(client):
     listing_id = r.json()["listing"]["id"]
     # Search finds it.
     results = client.get("/api/marketplace/search?q=skill").json()["results"]
-    assert any(l["id"] == listing_id for l in results)
+    assert any(r["id"] == listing_id for r in results)
 
 
 def test_marketplace_install_from_market_creates_approval(client):
@@ -478,7 +477,6 @@ def test_marketplace_tests_do_not_write_to_real_config(isolated_stores, client):
     the full write path (pair → complete → publish → install → approve) and then
     asserts that the REAL home directory's store files were never touched.
     """
-    import os
     from pathlib import Path
 
     # Restore the REAL home (isolated_stores monkeypatched Path.home to tmp_path;

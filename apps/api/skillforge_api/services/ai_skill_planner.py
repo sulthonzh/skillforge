@@ -29,9 +29,8 @@ from ..schemas.manifest import (
     Tool,
 )
 from ..settings import Settings, get_settings
-from .ai_provider import AIProvider, AIProviderError, get_active_provider, get_provider
+from .ai_provider import AIProvider, AIProviderError, get_active_provider
 from .tool_catalog import ToolCatalog, get_catalog
-
 
 # ----------------------------------------------------------------------------
 # Planner
@@ -208,7 +207,7 @@ class AISkillPlanner:
 
         # Tools mentioned explicitly in the message take priority.
         mentioned = self._catalog.find_tools_in_text(message)
-        mentioned_names = {name for name, _ in mentioned}
+        {name for name, _ in mentioned}
 
         # Then fill from the catalog's recommended defaults for the domain.
         recommended: list[Tool] = []
@@ -649,7 +648,7 @@ Produce the skill-planning JSON now."""
 # ----------------------------------------------------------------------------
 
 
-def plan_skill(message: str, planner: "AISkillPlanner | None" = None) -> tuple[SkillManifest, str]:
+def plan_skill(message: str, planner: AISkillPlanner | None = None) -> tuple[SkillManifest, str]:
     """Plan a skill from *message* using the configured provider."""
     return (planner or AISkillPlanner()).plan(message)
 

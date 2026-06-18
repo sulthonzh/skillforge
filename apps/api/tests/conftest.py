@@ -6,10 +6,6 @@ directory, and a throwaway SQLite database.
 
 from __future__ import annotations
 
-import os
-import tempfile
-from pathlib import Path
-
 import pytest
 
 
@@ -26,10 +22,10 @@ def isolated_env(monkeypatch, tmp_path):
     monkeypatch.setenv("SKILLFORGE_MODEL", "mock-model")
 
     # Reset cached singletons so the new env takes effect.
-    from skillforge_api.settings import reload_settings
     from skillforge_api.database import reset_engine
-    from skillforge_api.services.tool_catalog import get_catalog
     from skillforge_api.services import user_config
+    from skillforge_api.services.tool_catalog import get_catalog
+    from skillforge_api.settings import reload_settings
 
     reload_settings()
     reset_engine()

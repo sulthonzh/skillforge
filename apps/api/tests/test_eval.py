@@ -12,7 +12,6 @@ from skillforge_api.services.eval.suites import (
     DEFAULT_SUITE,
     EvalSuiteStore,
     SuiteNotFound,
-    get_suite_store,
 )
 
 
@@ -131,6 +130,7 @@ def test_runner_persists_run_and_results():
     summary = runner.run(skill_name="skill-creator", prompts=["p1", "p2"], suite_name="persist")
     # Re-fetch the run via the DB.
     from sqlmodel import select
+
     from skillforge_api.database import EvalResultRecord, EvalRunRecord, session_scope
 
     with session_scope() as session:
@@ -242,7 +242,7 @@ def test_compare_matrix(client):
     assert set(body["skills"]) == {"skill-creator", m.skill.name}
     assert len(body["matrix"]) >= 1
     row = body["matrix"][0]
-    assert "shared prompt" == row["prompt"]
+    assert row["prompt"] == "shared prompt"
     assert set(row["by_skill"].keys()) == {"skill-creator", m.skill.name}
 
 
@@ -256,7 +256,7 @@ def test_compare_matrix(client):
 def test_judge_fallback_recovers_from_empty_json(monkeypatch):
     """When complete_json raises (empty/non-JSON judge response), the fallback
     judge retries with plain text and extracts the score via regex."""
-    from skillforge_api.services.ai_provider import AIProvider, AIProviderError
+    from skillforge_api.services.ai_provider import AIProvider
     from skillforge_api.services.eval.runner import EvalRunner
 
     class FlakyJudgeProvider(AIProvider):
@@ -311,8 +311,8 @@ def test_judge_fallback_returns_error_when_both_fail(monkeypatch):
 
 def test_judge_fallback_extracts_score_from_text():
     """The regex extractor pulls the first 0-10 number from the text response."""
-    from skillforge_api.services.eval.runner import EvalRunner
     from skillforge_api.services.ai_provider import AIProvider, AIProviderError
+    from skillforge_api.services.eval.runner import EvalRunner
 
     class TextProvider(AIProvider):
         name = "text"

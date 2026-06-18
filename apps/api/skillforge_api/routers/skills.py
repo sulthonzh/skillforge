@@ -8,14 +8,14 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from ..schemas.skill import (
+    GeneratedFile,
     GenerateFilesRequest,
     GenerateFilesResponse,
-    GeneratedFile,
     InstallRequest,
     InstallResponse,
     ValidateRequest,
-    ValidationIssue,
     ValidateResponse,
+    ValidationIssue,
 )
 from ..services.skill_generator import SkillGenerator
 from ..services.skill_installer import InstallerError, SkillInstaller
@@ -105,6 +105,7 @@ async def list_skill_tools(skill_name: str):
     try:
         executor = ToolExecutor()
         from pathlib import Path
+
         from ..services.skill_registry import SkillRegistry
 
         record = SkillRegistry().get(skill_name)

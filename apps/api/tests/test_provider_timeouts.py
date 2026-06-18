@@ -10,7 +10,6 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from skillforge_api.settings import reload_settings
 from skillforge_api.services.ai_provider import (
     AnthropicProvider,
     CohereProvider,
@@ -19,7 +18,7 @@ from skillforge_api.services.ai_provider import (
     _format_http_error,
 )
 from skillforge_api.services.eval.runner import EvalRunner
-
+from skillforge_api.settings import reload_settings
 
 # ---------------------------------------------------------------------------
 # Settings → httpx.Timeout

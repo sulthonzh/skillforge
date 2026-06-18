@@ -4,9 +4,9 @@ from .chat import ChatPlanRequest, ChatPlanResponse
 from .manifest import SkillManifest
 from .registry import InstalledSkill, RegistryListResponse, RegistryMutationResponse
 from .skill import (
+    GeneratedFile,
     GenerateFilesRequest,
     GenerateFilesResponse,
-    GeneratedFile,
     InstallRequest,
     InstallResponse,
     ValidateRequest,

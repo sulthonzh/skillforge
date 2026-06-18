@@ -1,4 +1,4 @@
-# Run the backend test suite on every push and pull request.
+# Run tests, lint, typecheck, and web build on every push and pull request.
 # Tests use the mock AI provider, so they run fully offline with no secrets.
 
 name: ci
@@ -10,6 +10,19 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ruff
+        run: pip install "ruff>=0.6"
+      - name: Lint Python
+        run: ruff check apps/api apps/cli
+
   test:
     name: Test (Python ${{ matrix.python }})
     runs-on: ubuntu-22.04
@@ -38,16 +51,28 @@ jobs:
           SKILLFORGE_AI_PROVIDER: mock
         run: pytest -q
 
-      - name: Verify Web UI builds (Node)
-        uses: actions/setup-node@v4
+  web:
+    name: Web (typecheck + build)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
 
-      - name: Build Web UI
+      - name: Install dependencies
+        working-directory: apps/web
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck
+        working-directory: apps/web
+        run: npx tsc --noEmit
+
+      - name: Build
         working-directory: apps/web
         run: |
-          npm install --no-audit --no-fund
           npm run build
           test -f out/index.html

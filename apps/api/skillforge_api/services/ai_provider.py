@@ -586,7 +586,6 @@ def test_provider_connection(cfg) -> dict[str, Any]:
     endpoint SkillForge actually needs). Auth errors surface a clear message so
     users know to fix the key rather than the URL.
     """
-    from .user_config import ProviderConfig
 
     kind = (cfg.provider or "mock").strip()
     if kind == "mock":
@@ -609,7 +608,7 @@ def test_provider_connection(cfg) -> dict[str, Any]:
             else:
                 # Other non-2xx on /models → try chat before declaring failure.
                 pass
-        except httpx.HTTPError as exc:
+        except httpx.HTTPError:
             # Network error on /models → try chat (different path) before failing.
             pass
         # 2) Fall back to a minimal chat completion — the real workload path.
@@ -723,7 +722,6 @@ def test_provider_connection(cfg) -> dict[str, Any]:
 
 def list_models(cfg) -> list[str]:
     """Return available model names for a provider config (best-effort)."""
-    from .user_config import ProviderConfig
 
     kind = (cfg.provider or "mock").strip()
     if kind == "mock":

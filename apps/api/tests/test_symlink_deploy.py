@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
@@ -12,7 +11,6 @@ from skillforge_api.main import create_app
 from skillforge_api.services.bootstrap import bootstrap_skill_creator
 from skillforge_api.services.symlink_deploy import (
     SymlinkDeployer,
-    ToolTarget,
     ToolTargetDetector,
 )
 
@@ -203,7 +201,7 @@ def test_deploy_and_undeploy_endpoint(client):
     # Deploy to zcode (which is installed).
     r = client.post("/api/deploy/symlink", json={"skill_name": "skill-creator", "target_key": "zcode"})
     assert r.status_code == 200
-    deployed = [d for d in r.json()["deployments"] if d["status"] == "deployed"]
+    [d for d in r.json()["deployments"] if d["status"] == "deployed"]
     # Cleanup.
     client.post("/api/deploy/undeploy", json={"skill_name": "skill-creator", "target_key": "zcode"})
 

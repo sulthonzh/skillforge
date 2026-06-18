@@ -22,7 +22,7 @@ from dataclasses import dataclass
 
 import yaml
 
-from ..schemas.manifest import SkillManifest, Tool
+from ..schemas.manifest import SkillManifest
 from .template_renderer import TemplateRenderer
 
 

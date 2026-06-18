@@ -16,12 +16,12 @@ run on the same event-loop thread as everything else.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Iterator
 
 from sqlalchemy import event
-from sqlmodel import Field, Session, SQLModel, create_engine, select
+from sqlmodel import Field, Session, SQLModel, create_engine
 
 from .settings import get_settings
 

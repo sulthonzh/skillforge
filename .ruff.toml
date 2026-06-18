@@ -1,0 +1,31 @@
+# Ruff configuration — applies to both apps/api and apps/cli.
+# Run: ruff check apps/   (from repo root)
+
+target-version = "py310"
+line-length = 100
+src = ["apps/api", "apps/cli"]
+
+[lint]
+# Enable a focused set of rules. We start conservative to avoid churning the
+# existing codebase; tighten over time.
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes (unused imports, undefined names, etc.)
+    "W",    # pycodestyle warnings
+    "I",    # isort (import sorting)
+    "UP",   # pyupgrade (modernize syntax)
+    "B",    # flake8-bugbear (likely bugs)
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long — handled by formatter, not worth erroring on
+    "B008",   # function call in default argument (FastAPI Depends pattern)
+    "SIM108", # ternary instead of if/else — readability preference
+]
+
+[lint.per-file-ignores]
+# Tests can use star imports and long lines freely.
+"tests/**" = ["F401", "F403"]
+# __init__ files re-export for the public API.
+"**/__init__.py" = ["F401"]

@@ -10,13 +10,12 @@ from __future__ import annotations
 
 import enum
 import json
+import secrets
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import RLock
 from typing import Any
-
-import secrets
 
 
 class ApprovalStatus(str, enum.Enum):

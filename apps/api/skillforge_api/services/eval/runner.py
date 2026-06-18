@@ -184,7 +184,6 @@ class EvalRunner:
         same question without json_mode and extracting the score with a regex
         recovers these cases instead of marking a good response as failed.
         """
-        import re
 
         try:
             text = self._provider.complete(

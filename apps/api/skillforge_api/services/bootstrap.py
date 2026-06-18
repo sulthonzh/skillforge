@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 
-from ..settings import get_settings
 from .ai_skill_planner import AISkillPlanner
 from .skill_installer import SkillInstaller
 

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from skillforge_api.services.versioning import (
     bump_version,
     classify_change,

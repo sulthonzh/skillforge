@@ -13,11 +13,11 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from ..rate_limit import get_pairing_limiter
+from ..schemas.manifest import SkillManifest
 from ..services.marketplace.adapters import get_adapter
 from ..services.marketplace.approvals import ApprovalStatus, get_approval_manager
 from ..services.marketplace.packaging import PackagingError, SkillPackager
-from ..services.marketplace.pairing import get_pairing_manager, PairingManager
-from ..schemas.manifest import SkillManifest
+from ..services.marketplace.pairing import get_pairing_manager
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/marketplace", tags=["marketplace"])
@@ -43,7 +43,7 @@ def _client_key(request: Request) -> str:
 async def search(q: str = Query(default=""), tags: str | None = Query(default=None)):
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
     results = get_adapter().search(q, tag_list)
-    return {"results": [l.to_dict() for l in results], "count": len(results)}
+    return {"results": [r.to_dict() for r in results], "count": len(results)}
 
 
 @router.get("/listings/{listing_id}")

@@ -134,7 +134,7 @@ class LocalStubAdapter:
                         continue
                 results.append(Listing(**{k: v for k, v in data.items() if k != "free"}))
             # Sort by downloads desc, then name.
-            results.sort(key=lambda l: (-l.downloads, l.name))
+            results.sort(key=lambda x: (-x.downloads, x.name))
             return results
 
     def get(self, listing_id: str) -> Listing | None:
@@ -168,7 +168,7 @@ class LocalStubAdapter:
 
 
 # ---- singleton ----
-_adapter: "LocalStubAdapter | Any | None" = None
+_adapter: LocalStubAdapter | Any | None = None
 
 
 def get_adapter():

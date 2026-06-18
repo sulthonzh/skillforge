@@ -17,7 +17,6 @@ from skillforge_api.main import create_app
 from skillforge_api.rate_limit import RateLimiter
 from skillforge_api.services.marketplace.pairing import PairingManager
 
-
 # ---------------------------------------------------------------------------
 # LocalOriginGuardMiddleware
 # ---------------------------------------------------------------------------
