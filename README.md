@@ -1,6 +1,11 @@
-# SkillForge
+<p align="center">
+  <img src="blog/dev-to-launch-cover.png" alt="SkillForge — A Homebrew for AI skills, with the eval-harness compare-mode showing two skill cards scored head-to-head">
+</p>
 
-**AI-powered local skill builder for engineers.**
+<p align="center">
+  <strong>AI-powered local skill builder for engineers.</strong><br>
+  <sub>Local-first · 6 LLM providers · LLM-as-judge eval harness · marketplace bridge with scoped tokens</sub>
+</p>
 
 SkillForge helps engineers generate reusable, tool-specific skills from natural language. Instead of manually writing rigid skills from scratch, you describe what you need:
 
