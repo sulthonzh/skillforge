@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -23,8 +24,47 @@ from skillforge_api.services.marketplace.pairing import (
 from skillforge_api.services.marketplace.packaging import SkillPackager
 
 
+# ---------------------------------------------------------------------------
+# Isolation
+#
+# Every marketplace store (pairing tokens, approvals, listings) defaults to a
+# file under ~/.skillforge. Without isolation the test suite would (and did)
+# pollute the user's real config — e.g. each run appended duplicate bridge
+# tokens to ~/.skillforge/marketplace_tokens.json. These fixtures redirect all
+# three stores to a per-test temp dir and point the app singletons at them.
+# ---------------------------------------------------------------------------
+
+
 @pytest.fixture
-def client():
+def isolated_stores(tmp_path, monkeypatch):
+    """Redirect ALL marketplace stores + app singletons into tmp_path.
+
+    Returns the tmp_path so tests that need a direct PairingManager/adapter can
+    construct one against the same path.
+    """
+    # Make HOME point at the temp dir so even code that builds paths from
+    # Path.home() (the default for all three stores) lands in tmp_path.
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    # Fresh singletons backed by the temp dir.
+    pairing = PairingManager(path=tmp_path / "marketplace_tokens.json")
+    approvals = ApprovalManager(path=tmp_path / "marketplace_approvals.json")
+    adapter = LocalStubAdapter(root=tmp_path / "marketplace_stub")
+    set_pairing_manager(pairing)
+    set_approval_manager(approvals)
+    set_adapter(adapter)
+
+    yield tmp_path
+
+    # Restore the real singletons so we don't leak into other test modules.
+    set_pairing_manager(None)
+    set_approval_manager(None)
+    set_adapter(None)
+
+
+@pytest.fixture
+def client(isolated_stores):
+    """A TestClient whose marketplace stores are isolated to tmp_path."""
     return TestClient(create_app())
 
 
@@ -35,8 +75,8 @@ def _ensure_skill():
 # ---- PairingManager ----
 
 
-def test_pairing_code_generated_and_single_use():
-    mgr = PairingManager()
+def test_pairing_code_generated_and_single_use(isolated_stores):
+    mgr = PairingManager()  # picks up tmp_path via Path.home() monkeypatch
     code = mgr.generate_code()
     assert len(code) == 6
     result = mgr.complete_pairing(code)
@@ -48,11 +88,11 @@ def test_pairing_code_generated_and_single_use():
     assert mgr.complete_pairing(code) is None
 
 
-def test_pairing_invalid_code_returns_none():
+def test_pairing_invalid_code_returns_none(isolated_stores):
     assert PairingManager().complete_pairing("BOGUS0") is None
 
 
-def test_token_validate_and_revoke():
+def test_token_validate_and_revoke(isolated_stores):
     mgr = PairingManager()
     code = mgr.generate_code()
     plaintext, info = mgr.complete_pairing(code)
@@ -65,7 +105,7 @@ def test_token_validate_and_revoke():
     assert mgr.has_scope(plaintext, "registry:read") is False
 
 
-def test_token_wrong_secret_fails():
+def test_token_wrong_secret_fails(isolated_stores):
     mgr = PairingManager()
     mgr.generate_code()
     assert mgr.validate("not-a-real-token") is None
@@ -95,9 +135,9 @@ def test_packaging_unknown_skill_raises():
 # ---- LocalStubAdapter ----
 
 
-def test_stub_publish_search_download():
+def test_stub_publish_search_download(isolated_stores):
     _ensure_skill()
-    adapter = LocalStubAdapter()
+    adapter = LocalStubAdapter()  # isolated via Path.home() monkeypatch
     pkg = SkillPackager().pack("skill-creator")
     listing = adapter.publish(
         skill_name="skill-creator",
@@ -115,13 +155,13 @@ def test_stub_publish_search_download():
     assert downloaded == pkg
 
 
-def test_stub_search_empty():
+def test_stub_search_empty(isolated_stores):
     assert LocalStubAdapter().search("nothing") == []
 
 
-def test_stub_delete():
+def test_stub_delete(isolated_stores):
     _ensure_skill()
-    adapter = LocalStubAdapter()
+    adapter = LocalStubAdapter()  # isolated via Path.home() monkeypatch
     pkg = SkillPackager().pack("skill-creator")
     listing = adapter.publish(skill_name="skill-creator", package_bytes=pkg, listing_meta={})
     assert adapter.delete(listing.id) is True
@@ -252,8 +292,8 @@ def test_stub_legacy_id_detection_does_not_clobber_unrelated(tmp_path):
 # ---- ApprovalManager ----
 
 
-def test_approval_lifecycle():
-    mgr = ApprovalManager()
+def test_approval_lifecycle(isolated_stores):
+    mgr = ApprovalManager()  # isolated via Path.home() monkeypatch
     approval = mgr.create("test-skill", '{"test": true}', source="marketplace:x")
     assert approval.status == "pending"
     assert len(mgr.list_pending()) == 1
@@ -415,3 +455,60 @@ def test_e2e_marketplace_flow(client):
     # 5. Skill is in the registry.
     skills = client.get("/api/registry/skills").json()["skills"]
     assert any(s["name"] == "skill-creator" for s in skills)
+
+
+# ---- Isolation guard ----
+
+
+def test_marketplace_tests_do_not_write_to_real_config(isolated_stores, client):
+    """Regression: the marketplace test suite must not pollute the user's real
+    ~/.skillforge store.
+
+    Before isolation, every test run appended bridge tokens to the real
+    marketplace_tokens.json (the user saw 28+ duplicate "marketplace" tokens)
+    and left approval records in marketplace_approvals.json. This test exercises
+    the full write path (pair → complete → publish → install → approve) and then
+    asserts that the REAL home directory's store files were never touched.
+    """
+    import os
+    from pathlib import Path
+
+    # Restore the REAL home (isolated_stores monkeypatched Path.home to tmp_path;
+    # we need the genuine one to inspect it). We read the env directly because
+    # re-patching Path.home mid-test would break the client's isolated stores.
+    real_home = Path(os.environ["HOME"])
+
+    # Snapshot the real store files BEFORE driving writes through the client.
+    real_tokens = real_home / ".skillforge" / "marketplace_tokens.json"
+    real_approvals = real_home / ".skillforge" / "marketplace_approvals.json"
+
+    def _count(p: Path) -> int:
+        if not p.is_file():
+            return 0
+        try:
+            return len(json.loads(p.read_text()).get("tokens") or
+                       json.loads(p.read_text()).get("approvals") or [])
+        except Exception:
+            return -1
+
+    tokens_before = _count(real_tokens)
+    approvals_before = _count(real_approvals)
+
+    # Drive the full write path through the isolated client.
+    _ensure_skill()
+    code = client.post("/api/marketplace/pair/code").json()["code"]
+    client.post("/api/bridge/pair/complete", json={"code": code})
+    client.post("/api/marketplace/publish", json={"skill_name": "skill-creator"})
+    listing_id = client.post(
+        "/api/marketplace/publish", json={"skill_name": "skill-creator"}
+    ).json()["listing"]["id"]
+    inst = client.post("/api/marketplace/install", json={"listing_id": listing_id}).json()
+    client.post(f"/api/marketplace/pending/{inst['pending_approval']}/approve", json={"overwrite": True})
+
+    # The real store files must be unchanged.
+    assert _count(real_tokens) == tokens_before, (
+        "marketplace_tokens.json was polluted by the test client — isolation is broken"
+    )
+    assert _count(real_approvals) == approvals_before, (
+        "marketplace_approvals.json was polluted by the test client — isolation is broken"
+    )
