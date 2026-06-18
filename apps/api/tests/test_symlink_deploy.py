@@ -34,11 +34,27 @@ def test_detector_returns_known_tools():
     assert {"claude-code", "zcode", "codex"} <= keys
 
 
-def test_detector_marks_installed():
+def test_detector_marks_installed(tmp_path, monkeypatch):
+    """The detector flips ``installed`` to True when the tool's config dir exists.
+
+    Previous version of this test asserted ZCode was installed based on the
+    dev machine it ran on; that broke on CI runners where no AI coding tools
+    exist. We now point HOME at a temp dir, create the parent config dir for
+    a known tool, and verify the detector picks it up. This is the actual
+    contract: ``installed`` reflects the filesystem, not the dev's laptop.
+    """
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home))
+
+    # No tool dirs yet — every known tool should report installed=False.
     detector = ToolTargetDetector()
-    targets = detector.detect()
-    # ZCode should be installed (we're running inside it).
-    zcode = next(t for t in targets if t.key == "zcode")
+    zcode = next(t for t in detector.detect() if t.key == "zcode")
+    assert zcode.installed is False
+
+    # Create the ZCode config dir — detector should now flip the flag.
+    (fake_home / ".zcode").mkdir()
+    zcode = next(t for t in detector.detect() if t.key == "zcode")
     assert zcode.installed is True
 
 
@@ -199,7 +215,9 @@ def test_deploy_status_endpoint(client):
 def test_deploy_and_undeploy_endpoint(client):
     _ensure_skill()
     # Deploy to zcode (which is installed).
-    r = client.post("/api/deploy/symlink", json={"skill_name": "skill-creator", "target_key": "zcode"})
+    r = client.post(
+        "/api/deploy/symlink", json={"skill_name": "skill-creator", "target_key": "zcode"}
+    )
     assert r.status_code == 200
     [d for d in r.json()["deployments"] if d["status"] == "deployed"]
     # Cleanup.

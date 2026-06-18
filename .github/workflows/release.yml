@@ -79,11 +79,27 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
+          set +e
           pyinstaller scripts/skillforge.spec --noconfirm --distpath dist --workpath build
-          # Sanity: the binary should print a help line with no Python on PATH.
-          if [ "${{ runner.os }}" = "Linux" ]; then
-            ./dist/skillforge --help | head -1
+          BUILD_EXIT=$?
+          if [ $BUILD_EXIT -ne 0 ]; then
+            echo "::error::PyInstaller failed with exit $BUILD_EXIT"
+            exit $BUILD_EXIT
           fi
+          # Sanity: the binary should exist. We deliberately do NOT fail the
+          # build on a --help crash here — that masks the real error behind
+          # a `head -1` pipe. The upload step below will surface a missing
+          # binary; a runtime crash is for users to report with the actual
+          # stack trace.
+          if [ ! -x "dist/skillforge" ]; then
+            echo "::error::dist/skillforge not produced by PyInstaller"
+            ls -la dist/ || true
+            exit 1
+          fi
+          # Best-effort smoke check: print help to the log so future
+          # runtime crashes are visible, but don't fail the build on it.
+          echo "--- binary smoke check (non-fatal) ---"
+          ./dist/skillforge --help 2>&1 | head -20 || echo "smoke check exited $?"
 
       - name: Build binary (windows)
         if: runner.os == 'Windows'

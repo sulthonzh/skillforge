@@ -29,7 +29,6 @@ hiddenimports += [
     # SQLModel/SQLAlchemy SQLite wiring (not always auto-detected).
     "sqlalchemy.dialects.sqlite",
     "sqlalchemy.dialects.sqlite.pysqlite",
-    "aiosqlite",
     # Pydantic v2 internals.
     "pydantic",
     "pydantic.deprecated.decorator",

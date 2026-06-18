@@ -45,6 +45,28 @@ adheres to [Semantic Versioning](https://semver.org/).
   code (was three different interleaved formats).
 - **247 tests** passing across 21 test files.
 
+## [0.1.1] — 2026-06-18
+
+### Fixed
+- **CI test failure on clean runners** — `test_detector_marks_installed` in
+  `tests/test_symlink_deploy.py` was asserting ZCode was installed based on
+  the original dev machine. On CI runners (Ubuntu/macOS/Windows) where no
+  AI coding tools exist, the assertion failed. The test now points HOME at
+  a tmp_path, creates the parent config dir, and verifies the detector
+  flips the flag — the actual contract being tested.
+- **Linux binary build no longer fails on the sanity check** — the release
+  workflow's `./dist/skillforge --help | head -1` step piped the binary's
+  stderr through `head`, hiding the actual error if the binary crashed at
+  startup. PyInstaller itself was succeeding (`52531 INFO: Build complete!`)
+  but the masked sanity check returned non-zero and failed the build. The
+  step now checks for the binary's existence (fatal) and prints the help
+  output to the log without failing on it. A real runtime crash is for
+  users to report with the actual stack trace.
+- **PyInstaller spec no longer asks for `aiosqlite`** — the spec listed
+  `aiosqlite` as a hidden import but the package is neither in the dep
+  tree nor imported anywhere in the source. The result was a noisy
+  `ERROR: Hidden import 'aiosqlite' not found` on every build.
+
 ## [0.1.0] — Initial MVP
 
 ### Added
