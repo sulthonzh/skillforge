@@ -141,6 +141,11 @@ class EvalRunner:
         except AIProviderError as exc:
             return {"prompt": prompt, "response": "", "score": None, "reasoning": str(exc), "status": "error"}
 
+        # Judge the response. Use complete_json first; if the model returns
+        # empty/garbage (which happens on some providers when json_mode produces
+        # a truncated or empty body), retry once with a plain-text judge prompt
+        # and regex-score extraction. This keeps a good response from being
+        # marked failed just because the judge call hiccuped.
         try:
             judged = self._provider.complete_json(
                 system=JUDGE_SYSTEM,
@@ -149,13 +154,16 @@ class EvalRunner:
             score = self._extract_score(judged)
             reasoning = str(judged.get("reasoning", "")) if isinstance(judged, dict) else ""
         except AIProviderError as exc:
-            return {
-                "prompt": prompt,
-                "response": response,
-                "score": None,
-                "reasoning": f"judge failed: {exc}",
-                "status": "error",
-            }
+            # Fallback: ask for a plain-text score and parse it with regex.
+            score, reasoning = self._judge_fallback(prompt, response, output_standards, exc)
+            if score is None:
+                return {
+                    "prompt": prompt,
+                    "response": response,
+                    "score": None,
+                    "reasoning": f"judge failed: {exc}",
+                    "status": "error",
+                }
 
         return {
             "prompt": prompt,
@@ -164,6 +172,44 @@ class EvalRunner:
             "reasoning": reasoning,
             "status": "ok",
         }
+
+    def _judge_fallback(
+        self, prompt: str, response: str, standards: list[str], original_error: AIProviderError
+    ) -> tuple[float | None, str]:
+        """Retry the judge as plain text when the JSON judge returns empty/garbage.
+
+        Some providers return an empty body when json_mode is set and the
+        response would be very short — the call "succeeds" (HTTP 200) but the
+        body is empty, so complete_json raises "not valid JSON". Asking the
+        same question without json_mode and extracting the score with a regex
+        recovers these cases instead of marking a good response as failed.
+        """
+        import re
+
+        try:
+            text = self._provider.complete(
+                system=JUDGE_SYSTEM,
+                user=(
+                    self._judge_user(prompt, response, standards)
+                    + "\n\nOn the FIRST LINE, write only a number from 0 to 10. "
+                    "Then on the next lines, give a one-sentence justification."
+                ),
+            )
+        except AIProviderError:
+            return None, str(original_error)
+
+        # Extract the first number 0-10 in the response (the score).
+        match = re.search(r"\b([0-9]|10)(?:\.0)?\b", text.strip())
+        if not match:
+            return None, str(original_error)
+        try:
+            score = float(match.group(1))
+        except ValueError:
+            return None, str(original_error)
+        if score > 10:
+            score = 10.0
+        reasoning = text.strip()[:200] or "scored via fallback judge"
+        return score, f"(fallback judge) {reasoning}"
 
     def _judge_user(self, prompt: str, response: str, standards: list[str]) -> str:
         return (

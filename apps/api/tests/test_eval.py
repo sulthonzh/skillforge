@@ -244,3 +244,88 @@ def test_compare_matrix(client):
     row = body["matrix"][0]
     assert "shared prompt" == row["prompt"]
     assert set(row["by_skill"].keys()) == {"skill-creator", m.skill.name}
+
+
+# ---------------------------------------------------------------------------
+# Judge fallback — when the JSON judge returns empty/garbage, the eval must
+# recover via a plain-text retry instead of marking a good response as failed.
+# (Seen in the wild on Z.ai/GLM: json_mode produces an empty body.)
+# ---------------------------------------------------------------------------
+
+
+def test_judge_fallback_recovers_from_empty_json(monkeypatch):
+    """When complete_json raises (empty/non-JSON judge response), the fallback
+    judge retries with plain text and extracts the score via regex."""
+    from skillforge_api.services.ai_provider import AIProvider, AIProviderError
+    from skillforge_api.services.eval.runner import EvalRunner
+
+    class FlakyJudgeProvider(AIProvider):
+        name = "flaky"
+
+        def complete(self, system, user, *, json_mode=False, max_tokens=None):
+            if json_mode:
+                # Simulate Z.ai returning an empty body with json_mode set.
+                return ""
+            # Plain-text fallback: the model writes a score + justification.
+            return "8\nThe response covers the key points well but misses an edge case."
+
+    runner = EvalRunner(provider=FlakyJudgeProvider())
+    result = runner._eval_one(
+        skill_md="# Test skill\nA test skill.",
+        prompt="How do I do X?",
+        output_standards=["correct", "complete"],
+        skill_name="test-skill",
+    )
+    # The fallback judge should have recovered the score.
+    assert result["status"] == "ok", f"expected ok, got {result}"
+    assert result["score"] == 8.0
+    assert "fallback" in result["reasoning"].lower()
+
+
+def test_judge_fallback_returns_error_when_both_fail(monkeypatch):
+    """If both the JSON judge AND the text fallback fail, mark as error."""
+    from skillforge_api.services.ai_provider import AIProvider, AIProviderError
+    from skillforge_api.services.eval.runner import EvalRunner
+
+    class BrokenProvider(AIProvider):
+        name = "broken"
+
+        def complete(self, system, user, *, json_mode=False, max_tokens=None):
+            # Generate works, but the judge (both JSON and text) raises.
+            if "Score this response" in user or "score" in system.lower():
+                raise AIProviderError("provider is down")
+            return "A valid generated response."
+
+    runner = EvalRunner(provider=BrokenProvider())
+    result = runner._eval_one(
+        skill_md="# Test skill",
+        prompt="How do I do X?",
+        output_standards=["correct"],
+        skill_name="test-skill",
+    )
+    assert result["status"] == "error"
+    assert result["score"] is None
+    # The response was still captured (generation succeeded).
+    assert result["response"] == "A valid generated response."
+
+
+def test_judge_fallback_extracts_score_from_text():
+    """The regex extractor pulls the first 0-10 number from the text response."""
+    from skillforge_api.services.eval.runner import EvalRunner
+    from skillforge_api.services.ai_provider import AIProvider, AIProviderError
+
+    class TextProvider(AIProvider):
+        name = "text"
+
+        def complete(self, system, user, *, json_mode=False, max_tokens=None):
+            if json_mode:
+                raise AIProviderError("not valid JSON")
+            return "10\nPerfect answer."
+
+    runner = EvalRunner(provider=TextProvider())
+    score, reasoning = runner._judge_fallback(
+        prompt="test", response="a response", standards=["x"],
+        original_error=AIProviderError("json failed"),
+    )
+    assert score == 10.0
+    assert "10" in reasoning or "Perfect" in reasoning
