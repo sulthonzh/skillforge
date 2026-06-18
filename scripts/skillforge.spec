@@ -86,12 +86,58 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
-        # Trim test/tooling we don't need at runtime.
+        # ---- pkg_resources / setuptools ----
+        # SkillForge never imports pkg_resources at runtime, but PyInstaller's
+        # pyi_rth_pkgres runtime hook runs unconditionally and on setuptools
+        # >=70 it tries to import the split-out jaraco.* submodules (jaraco.text,
+        # jaraco.functools, ...). If jaraco isn't bundled the binary crashes at
+        # startup with ModuleNotFoundError: No module named 'jaraco.text'.
+        # Excluding all three means the runtime hook has nothing to load, and
+        # since nothing in the app needs it, the binary just works.
+        "pkg_resources",
+        "setuptools",
+        "jaraco",
+        "jaraco.text",
+        "jaraco.functools",
+        "jaraco.context",
+        # ---- Trim test/tooling we don't need at runtime ----
         "pytest",
         "tests",
         "pip",
-        "setuptools",
         "distutils",
+        # ---- Heavy packages SkillForge never imports ----
+        # These are listed explicitly so a build environment that happens to
+        # have them installed (e.g. a shared/global site-packages) cannot bloat
+        # the binary. Each has been verified absent from the import graph.
+        # AWS SDK (~12 MB) — we don't talk to AWS.
+        "botocore",
+        "boto3",
+        "s3transfer",
+        # Numeric / plotting (~16 MB combined) — we don't compute or plot.
+        "numpy",
+        "matplotlib",
+        "pandas",
+        "scipy",
+        "PIL",
+        "Pillow",
+        "contourpy",
+        # DB drivers for engines we don't use (we use SQLite via sqlite3).
+        "psycopg2",
+        "psycopg",
+        "asyncpg",
+        "pymysql",
+        "cryptography",  # only needed by some DB/SSH drivers
+        # XML parsing — unused (we use stdlib xml + yaml).
+        "lxml",
+        # IDE / notebook tooling — unused.
+        "jedi",
+        "IPython",
+        "jupyter",
+        "notebook",
+        "tornado",
+        "zmq",
+        # Parquet / arrow — unused.
+        "pyarrow",
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
