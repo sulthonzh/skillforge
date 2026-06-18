@@ -250,9 +250,16 @@ def serve(
     """
     import uvicorn
 
+    from skillforge_api.logging_config import build_log_config
+
     settings = get_settings()
     host = host or settings.api_host
     port = port or settings.api_port
+
+    # One unified logging format for uvicorn access logs, httpx outbound
+    # requests, and app code. Passing this to uvicorn's log_config replaces
+    # uvicorn's default "INFO:     <addr> - ..." format so every line matches.
+    log_config = build_log_config()
 
     console.print(Panel.fit(
         f"AI provider : {settings.ai_provider}  (model: {settings.model})\n"
@@ -267,7 +274,7 @@ def serve(
 
     if api_only:
         console.print(f"[bold]API-only[/bold] on http://{host}:{port}  (OpenAPI: /docs)")
-        uvicorn.run("skillforge_api.main:app", host=host, port=port, reload=reload)
+        uvicorn.run("skillforge_api.main:app", host=host, port=port, reload=reload, log_config=log_config)
         return
 
     # Bundled mode: ensure the Web UI export exists, optionally rebuild it.
@@ -297,10 +304,10 @@ def serve(
         from skillforge_api.main import create_app
 
         app = create_app(static_dir=str(web_dir))
-        uvicorn.run(app, host=host, port=port, reload=False)
+        uvicorn.run(app, host=host, port=port, reload=False, log_config=log_config)
     else:
         console.print(f"[bold]API-only[/bold] on http://{host}:{port}  (OpenAPI: /docs)")
-        uvicorn.run("skillforge_api.main:app", host=host, port=port, reload=reload)
+        uvicorn.run("skillforge_api.main:app", host=host, port=port, reload=reload, log_config=log_config)
 
 
 def _serve_dev(host: str, port: int) -> None:
@@ -329,12 +336,13 @@ def _serve_dev(host: str, port: int) -> None:
             signal.signal(sig, _stop_web)
 
         config = uvicorn.Config("skillforge_api.main:app", host=host, port=port, reload=True)
+        config.log_config = build_log_config()
         server = uvicorn.Server(config)
         server.run()
     except RuntimeError as exc:
         console.print(f"[yellow]Could not start dev web server:[/yellow] {exc}")
         console.print(f"[yellow]Falling back to API-only on http://{host}:{port}[/yellow]")
-        uvicorn.run("skillforge_api.main:app", host=host, port=port, reload=True)
+        uvicorn.run("skillforge_api.main:app", host=host, port=port, reload=True, log_config=build_log_config())
     finally:
         if web_proc and web_proc.poll() is None:
             web_proc.terminate()

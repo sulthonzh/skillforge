@@ -36,7 +36,15 @@ from .routers import (
 from .settings import get_settings
 
 log = logging.getLogger("skillforge_api")
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+# Apply the unified logging format on import so every entry point (the CLI's
+# `serve`, `uvicorn skillforge_api.main:app`, direct imports, tests) gets
+# consistent timestamps + logger names. The CLI additionally passes
+# build_log_config() to uvicorn's log_config so uvicorn's own access log uses
+# the same format. See skillforge_api/logging_config.py.
+from .logging_config import configure_logging
+
+configure_logging()
 
 
 @asynccontextmanager
