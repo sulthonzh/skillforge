@@ -22,7 +22,7 @@ RUN npm run build
 # Result: /web/out
 
 # ---------- Stage 2: Python runtime + API + exported UI ----------
-FROM python:3.12-slim
+FROM python:3.14-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
