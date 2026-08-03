@@ -1,6 +1,6 @@
 # API-only image for the two-service docker-compose profile.
 # (The single-container image is apps/api/Dockerfile, which also builds the UI.)
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
