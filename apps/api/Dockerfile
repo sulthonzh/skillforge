@@ -10,7 +10,7 @@
 #   docker build -t skillforge -f apps/api/Dockerfile .
 
 # ---------- Stage 1: build the Web UI export ----------
-FROM node:20-alpine AS web-builder
+FROM node:24-alpine AS web-builder
 WORKDIR /web
 COPY apps/web/package.json apps/web/package-lock.json* ./
 RUN npm install --no-audit --no-fund
