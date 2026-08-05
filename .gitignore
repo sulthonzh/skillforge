@@ -64,3 +64,9 @@ generated-skills/
 skillforge.db
 skillforge.db-shm
 skillforge.db-wal
+
+# Code Quality Supervisor additions
+*.log
+*.tgz
+coverage/
+.env.*
