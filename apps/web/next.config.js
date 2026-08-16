@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  webpack: (config) => {
+    config.resolve.alias["@"] = __dirname;
+    return config;
+  },
   // Produce a fully static site (apps/web/out) that FastAPI can serve directly
   // in bundled mode, so `skillforge serve` runs one process on one port.
   output: "export",
