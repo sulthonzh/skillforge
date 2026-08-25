@@ -2,5 +2,14 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "description": "Next 15 requires TypeScript <7 (pinned 31970489348); cap renovate to ^5 until Next 16 upgrade",
+      "matchPackageNames": [
+        "typescript"
+      ],
+      "allowedVersions": "^5"
+    }
   ]
 }
