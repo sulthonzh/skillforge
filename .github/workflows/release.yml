@@ -42,7 +42,7 @@ jobs:
             artifact: skillforge-linux-x86_64
             pyinstaller_arch: ""
           - os: Windows
-            runner: ubuntu
+            runner: windows-latest
             artifact: skillforge-windows-x86_64.exe
             pyinstaller_arch: ""
 
