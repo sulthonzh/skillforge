@@ -70,4 +70,3 @@ skillforge.db-wal
 *.tgz
 coverage/
 .env.*
-# ci-verification
