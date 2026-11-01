@@ -21,15 +21,15 @@ permissions:
 jobs:
   build-binary:
     name: Build ${{ matrix.os }}
-    runs-on: [self-hosted, svr1]
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: macOS (Apple Silicon)
-            runner: ubuntu
-            artifact: skillforge-linux-x64-arm64
+            runner: macos-latest
+            artifact: skillforge-macos-arm64
             pyinstaller_arch: ""
           # macOS Intel build removed: macos-13 was retired Dec 4 2025
           # (https://github.blog/changelog/2025-09-19-github-actions-macos-13-runner-image-is-closing-down/)
@@ -38,7 +38,7 @@ jobs:
           # will also retire in Fall 2027. Modern Mac users have arm64; Intel
           # Mac users can build from source via scripts/build-binary.sh.
           - os: Linux
-            runner: ubuntu
+            runner: [self-hosted, svr1]
             artifact: skillforge-linux-x86_64
             pyinstaller_arch: ""
           - os: Windows
